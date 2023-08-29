@@ -6,7 +6,7 @@ pragma solidity ^0.8.19;
 
 /// @custom:info Глобальний смарт контракт
 
-interface IGameServerMetadata {
+interface IGameServerMetadata { 
     /* 01. */ function gameServerToString(uint256 gameId) external pure returns (string memory, string memory);
 }
 
