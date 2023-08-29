@@ -1,0 +1,77 @@
+/*
+ * Copyright (C) 2023 Anhydrite Gaming Ecosystem
+ *
+ * This code is part of the Anhydrite Gaming Ecosystem.
+ *
+ * ERC-20 Token: Anhydrite ANH 0x578b350455932aC3d0e7ce5d7fa62d7785872221
+ * Network: Binance Smart Chain
+ * Website: https://anh.ink
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that explicit attribution to the original code and website
+ * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * This code is provided as-is, without warranty of any kind, express or implied,
+ * including but not limited to the warranties of merchantability, fitness for a 
+ * particular purpose, and non-infringement. In no event shall the authors or 
+ * copyright holders be liable for any claim, damages, or other liability, whether 
+ * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
+ * with the software or the use or other dealings in the software.
+ */
+
+interface IVotes {
+    // Function to get the status of voting for new Tokens Needed
+    function getVoteForNewTokensNeeded() external view returns (uint256, uint256, uint256, uint256);
+    // Function to get the status of voting for new implementation
+    function getVoteForNewImplementationStatus() external view returns (address, uint256, uint256, uint256);
+    // Function to get the status of voting for new owner
+    function getVoteForNewOwnerStatus() external view returns (address, uint256, uint256, uint256);
+    // Function to get the status of voting for remove owner
+    function getVoteForRemoveOwnerStatus() external view returns (address, uint256, uint256, uint256);
+    // Function to get the status of voting for Stopped
+    function getVoteForStopped() external view returns (bool, uint256, uint256, uint256);
+ 
+    // A function for opening a vote on stopping or resuming the operation of a smart contract
+    function startVotingForStopped(bool _proposed) external;
+    // The function of voting for stopping and resuming the work of a smart contract
+    function voteForStopped(bool vote) external;
+    function startVotingForNeededForOwnership(uint256 _proposed) external;
+    function voteForNeededForOwnership(bool vote) external;
+    function startVotingForNewImplementation(address _proposed) external;
+    function voteForNewImplementation(bool vote) external;
+    function initiateOwnershipRequest() external;
+    function voteForNewOwner(address _owner, bool vote) external;
+    function startVotingForRemoveOwner(address _proposed) external;
+    function voteForRemoveOwner(bool vote) external;
+
+    function closeVoteForStopped() external;
+    function closeVoteForTokensNeeded() external;
+    function closeVoteForNewImplementation() external;
+    function closeVoteForNewOwner() external;
+    function closeVoteForRemoveOwner() external;
+
+    // Events
+    event VotingForStopped(address indexed addressVoter, bool indexed vote);
+    event VotingCompletedForStopped(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
+    event CloseVoteForStopped(address indexed decisiveVote, uint votesFor, uint votesAgainst);
+
+    event VotingForTokensNeeded(address indexed addressVoter, bool indexed vote);
+    event VotingCompletedForTokensNeeded(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
+    event CloseVoteForTokensNeeded(address indexed decisiveVote, uint votesFor, uint votesAgainst);
+
+    event VotingForNewImplementation(address indexed addressVoter, bool indexed vote);
+    event VotingCompletedForNewImplementation(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
+    event CloseVoteForNewImplementation(address indexed decisiveVote, uint votesFor, uint votesAgainst);
+
+    event VotingForNewOwner(address indexed addressVoter, address indexed votingObject, bool indexed vote);
+    event VotingCompletedForNewOwner(address indexed decisiveVote, address indexed votingObject, bool indexed result, uint votesFor, uint votesAgainst);
+    event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
+
+    event VotingForRemoveOwner(address indexed addressVoter, address indexed votingObject, bool indexed vote);
+    event VotingCompletedForRemoveOwner(address indexed decisiveVote, address indexed votingObject, bool indexed result, uint votesFor, uint votesAgainst);
+    event CloseVoteForRemoveOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
+
+    event InitiateOwnership(address indexed subject, bool indexed result);
+}
