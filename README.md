@@ -17,7 +17,7 @@ The creation of a unified ecosystem for multiplayer server games that allows the
 6. **Extension Modules**: Additional functionalities for voting, raffles, competitions, and charity events.
 
 ## Monetization
-The basic set of functionalities is free. Additional modules and extended features are available for a fee in Anhydrite cryptocurrency, which will be burned after the transaction, thereby regulating its circulation and value.
+The basic set of functionalities is free. Add-on modules and advanced features are free, with a small Anhydrite cryptocurrency fee for installation. The fee is burned in the transaction process, regulating circulation and value.
 
 ## Security
 High level of cryptographic security and compliance with regulatory standards for financial transactions.

@@ -71,11 +71,7 @@ abstract contract Proxy is IProxy, IERC721Receiver {
     VoteResult internal _votesForRemoveOwner;
     
     constructor() {
-        _implementation = address(0);
-        _owners[msg.sender] = true;
-        _totalOwners++;
         _token = IERC20(0x578b350455932aC3d0e7ce5d7fa62d7785872221);
-        _tokensNeededForOwnership = 1 * 10 **18;
     }
 
     // Returns an ERC20 standard token, which is the main token of the project

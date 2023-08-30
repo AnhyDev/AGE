@@ -1,6 +1,4 @@
 abstract contract Votes is IVotes, Proxy {
-    
-
 
     // A function for opening a vote on stopping or resuming the operation of a smart contract
     function startVotingForStopped(bool _proposed) public onlyOwner canYouVote(_votesForStopped) {

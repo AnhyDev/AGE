@@ -1,100 +1,201 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-import "@openzeppelin/contracts@4.6.0/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts@4.6.0/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts@4.6.0/access/Ownable.sol";
-import "@openzeppelin/contracts@4.6.0/utils/introspection/ERC165Checker.sol";
-import "@openzeppelin/contracts@4.6.0/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-/// @custom:security-contact meta.wmc@gmail.com
-contract Anhydrite is Ownable, ERC20, ERC20Burnable {
-    using ERC165Checker for address;
+/*
+ * Copyright (C) 2023 Anhydrite Gaming Ecosystem
+ *
+ * This code is part of the Anhydrite Gaming Ecosystem.
+ *
+ * ERC-20 Token: Anhydrite ANH
+ * Network: Binance Smart Chain
+ * Website: https://anh.ink
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that explicit attribution to the original code and website
+ * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * This code is provided as-is, without warranty of any kind, express or implied,
+ * including but not limited to the warranties of merchantability, fitness for a 
+ * particular purpose, and non-infringement. In no event shall the authors or 
+ * copyright holders be liable for any claim, damages, or other liability, whether 
+ * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
+ * with the software or the use or other dealings in the software.
+ */
 
-    mapping(address => bool) private _permitted;
-    bytes32 private _data;
 
-    constructor(string memory data_, address a1, address a2, address a3, address a4, address a5, address a6, address a7, address a8) ERC20("Anhydrite", "ANH") {
-        _data = keccak256(abi.encodePacked(data_));
-        _mint(a1, 49800000 * 10 ** decimals());
-        _mint(a2,  2000000 * 10 ** decimals());
-        _mint(a3,  2000000 * 10 ** decimals());
-        _mint(a4,  2000000 * 10 ** decimals());
-        _mint(a5,  2000000 * 10 ** decimals());
-        _mint(a6,  2000000 * 10 ** decimals());
-        _mint(a7,   100000 * 10 ** decimals());
-        _mint(a8,   100000 * 10 ** decimals());
+/*
+* VotingOwner is the only way to change the owner of a smart contract.
+* The standard Ownable owner change functions from OpenZeppelin are blocked.
+*/
+
+abstract contract VotingOwner is Ownable {
+    
+    IProxy internal _proxyContract;
+
+    struct VoteResult {
+        address[] isTrue;
+        address[] isFalse;
+        uint256 timestamp;
     }
 
-//************************* override functions ***************************//
+    address internal _proposedOwner;
+    VoteResult internal _votesForNewOwner;
 
-    function renounceOwnership() public virtual override onlyOwner onlyAllowed {
-        bool a = false;
-        require(a, "Anhydrite: his function is locked");
+    event VotingForOwner(address indexed voter, address votingSubject, bool vote);
+    event VotingOwnerCompleted(address indexed voter, address votingSubject, bool vote, uint votesFor, uint votesAgainst);
+
+    constructor(address proxyAddress) {
+        _proxyContract = IProxy(proxyAddress);
     }
 
-    function transferOwnership(address newOwner) public virtual override onlyOwner onlyAllowed {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        _transferOwnership(newOwner);
-        _permitted[msg.sender] = false;
+    // Please provide the address of the new owner for the smart contract.
+    function proposedVoteForOwner(address proposedOwner) external onlyProxyOwner(msg.sender) {
+        require(!_isActiveForVoteOwner(), "VotingOwner: voting is already activated");
+        require(!_proxyContract.isBlacklisted(proposedOwner), "VotingOwner: this address is blacklisted");
+        require(_isProxyOwner(proposedOwner), "VotingOwner: caller is not the proxy owner");
+
+        _proposedOwner = proposedOwner;
+        _votesForNewOwner = VoteResult(new address[](0), new address[](0), block.timestamp);
+        _voteForNewOwner(true);
     }
 
-//************************* special functions ***************************//
-
-    function xNew(string memory data, string memory newdata) public onlyOwner onlyData(data) onlyAllowed {
-        _data = keccak256(abi.encodePacked(newdata));
+    function voteForNewOwner(bool vote) external onlyProxyOwner(_proposedOwner) {
+        _voteForNewOwner(vote);
     }
 
-    function xAdd(string memory data, address to) public onlyOwner onlyData(data) {
-        require(!_permitted[to], "Anhydrite: this Pyramid already has permission");
-        _permitted[to] = true;
-    }
+    // Voting for the address of the new owner of the smart contract
+    function _voteForNewOwner(bool vote) internal {
+        require(_isActiveForVoteOwner(), "VotingOwner: there are no votes at this address");
 
-    function xRemove(string memory data, address to) public onlyOwner onlyData(data) {
-        require(_permitted[to], "Anhydrite: this Pyramid has no permission");
-        _permitted[to] = false;
-    }
-
-    function xContract(uint256 amount) public isPyramid onlyAllowed {
-        uint256 am = amount * 10 ** decimals();
-        if (balanceOf(address(this)) >= am) {
-            _transfer(address(this), msg.sender, am);
+        if (vote) {
+            _votesForNewOwner.isTrue.push(msg.sender);
         } else {
-            _mint(msg.sender, am);
+            _votesForNewOwner.isFalse.push(msg.sender);
+        }
+
+        uint256 _totalOwners = _proxyContract.getTotalOwners();
+
+        uint votestrue = _votesForNewOwner.isTrue.length;
+        uint votesfalse = _votesForNewOwner.isFalse.length;
+
+        emit VotingForOwner(msg.sender, _proposedOwner, vote);
+
+        if (votestrue * 100 >= _totalOwners * 60) {
+            _transferOwnership(_proposedOwner);
+            _resetVote(_votesForNewOwner);
+            emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+            _proposedOwner = address(0);
+        } else if (votesfalse * 100 > _totalOwners * 40) {
+            _resetVote(_votesForNewOwner);
+            emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+            _proposedOwner = address(0);
         }
     }
 
-    function getP(address contr, string memory data) public onlyOwner onlyData(data) {
-        Pyramid token = Pyramid(contr);
-        token.withdrawProfit();
+    // Check if voting is enabled for new contract owner and their address.
+    function getActiveForVoteOwner() external view returns (bool, address) {
+        require(_isActiveForVoteOwner(), "VotingOwner: re is no active voting");
+        return (_isActiveForVoteOwner(), _proposedOwner);
     }
 
-    function getW() public onlyOwner onlyAllowed {
-        uint amount = address(this).balance;
-        require(amount > (1 * 10 ** 15), "Anhydrite: too little balance to withdraw");
-        payable(owner()).transfer(amount);
+    function _isActiveForVoteOwner() internal view returns (bool) {
+        return _proposedOwner != address(0) && _proposedOwner !=  owner();
     }
 
-    modifier onlyData(string memory data) {
-        require(_data == keccak256(abi.encodePacked(data)), "Anhydrite: caller is not the owner.");
+    function _resetVote(VoteResult storage vote) internal {
+        vote.isTrue = new address[](0);
+        vote.isFalse = new address[](0);
+        vote.timestamp = 0;
+    }
+
+    function _isProxyOwner(address senderAddress) internal view returns (bool) {
+        return _proxyContract.isProxyOwner(senderAddress);
+    }
+
+    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
+    modifier onlyProxyOwner(address senderAddress) {
+        require(_isProxyOwner(senderAddress), "VotingOwner: caller is not the proxy owner");
         _;
     }
 
-    modifier onlyAllowed() {
-        require(_permitted[msg.sender], "Ownable: caller is not the owner...");
-        _;
+    // The renounceOwnership() function is blocked
+    function renounceOwnership() public override onlyOwner onlyProxyOwner(msg.sender) {
+        bool deact = false;
+        require(deact, "VotingOwner: this function is deactivated");
+        _transferOwnership(owner());
     }
 
-    modifier isPyramid() {
-        require(Address.isContract(msg.sender), "Ownable: caller is not the owner..");
-        require(msg.sender.supportsInterface(0x80ac58cd), "Ownable: caller is not the owner.");
-        _;
+    // The transferOwnership(address newOwner) function is blocked
+    function transferOwnership(address newOwner) public override onlyOwner onlyProxyOwner(msg.sender) {
+        bool deact = false;
+        require(deact, "VotingOwner: this function is deactivated");
+        require(newOwner != address(0), "VotingOwner: new owner is the zero address");
+        _transferOwnership(owner());
+    }
+}
+
+abstract contract Finances is VotingOwner {
+
+   /// @notice Function for transferring Ether
+    function withdrawMoney(uint256 amount) external onlyOwner {
+        address payable recipient = payable(_proxyContract.getImplementation());
+        require(address(this).balance >= amount, "Contract has insufficient balance");
+        recipient.transfer(amount);
     }
 
-    receive() external payable {}
+    /// @notice Function for transferring ERC20 tokens
+    function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
+        IERC20 token = IERC20(_tokenAddress);
+        require(token.balanceOf(address(this)) >= _amount, "Not enough tokens on contract balance");
+        token.transfer(_proxyContract.getImplementation(), _amount);
+    }
+
+    /// @notice Function for transferring ERC721 tokens
+    function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
+        IERC721 token = IERC721(_tokenAddress);
+        require(token.ownerOf(_tokenId) == address(this), "The contract is not the owner of this token");
+        token.safeTransferFrom(address(this), _proxyContract.getImplementation(), _tokenId);
+    }
 
 }
 
-interface Pyramid {
-    function withdrawProfit() external;
+contract Anhydrite is Finances, ERC20, ERC20Burnable {
+    using ERC165Checker for address;
+
+    address private _permitted;
+
+    constructor(address proxy_) ERC20("Anhydrite", "ANH") VotingOwner(proxy_) {
+        _mint(address(this), 70000000 * 10 ** decimals());
+    }
+
+    function setPermitedContract(address to) public onlyOwner onlyProxyOwner(msg.sender) {
+        // require(!_permitted[to], "Anhydrite: this Pyramid already has permission");
+        _permitted = to;
+    }
+
+    function getTokens(uint256 amount) public {
+        require(msg.sender == _proxyContract.getImplementation(), "Anhydrite: unauthorized call");
+        if (balanceOf(address(this)) >= amount) {
+            _transfer(address(this), msg.sender, amount);
+        } else {
+            _mint(msg.sender, amount);
+        }
+    }
+
+}
+
+interface IProxy {
+    function getImplementation() external view returns (address);
+    function getTotalOwners() external view returns (uint256);
+    function isBlacklisted(address account) external view returns (bool);
+    function isProxyOwner(address tokenAddress) external view returns (bool);
 }

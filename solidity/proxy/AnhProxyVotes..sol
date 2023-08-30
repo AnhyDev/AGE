@@ -23,7 +23,14 @@
 
 contract AnhydriteProxyVotes is IVotesInfo, Votes {
     
-
+    
+    constructor() {
+        _implementation = address(0);
+        _owners[msg.sender] = true;
+        _totalOwners++;
+        _tokensNeededForOwnership = 1 * 10 **18;
+    }
+    
     // Function to get the status of voting for new Tokens Needed
     function getVoteForNewTokensNeeded() public view returns (uint256, uint256, uint256, uint256) {
         return (
