@@ -1,6 +1,4 @@
-// SPDX-License-Identifier: All rights reserved
-// Anything related to the Anhydrite project, except for the OpenZeppelin library code, is protected.
-// Copying, modifying, or using without proper attribution to the Anhydrite project and a link to https://anh.ink is strictly prohibited.
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.19;
 
@@ -9,15 +7,29 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-/// @custom:security-contact support@anh.ink
-
-
 /*
-* A set of interfaces and smart contracts that implement a proxy contract, 
-* the main purpose of which is to delegate calls to a global smart contract.
-*
-* And also the implementation of the system of owners, where all decisions are made by voting.
-*/
+ * Copyright (C) 2023 Anhydrite Gaming Ecosystem
+ *
+ * This code is part of the Anhydrite Gaming Ecosystem.
+ *
+ * ERC-20 Token: Anhydrite ANH
+ * Network: Binance Smart Chain
+ * Website: https://anh.ink
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that explicit attribution to the original code and website
+ * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * This code is provided as-is, without warranty of any kind, express or implied,
+ * including but not limited to the warranties of merchantability, fitness for a 
+ * particular purpose, and non-infringement. In no event shall the authors or 
+ * copyright holders be liable for any claim, damages, or other liability, whether 
+ * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
+ * with the software or the use or other dealings in the software.
+ */
+
 
 interface IProxy {
     
@@ -86,11 +98,7 @@ abstract contract Proxy is IProxy, IERC721Receiver {
     VoteResult internal _votesForRemoveOwner;
     
     constructor() {
-        _implementation = address(0);
-        _owners[msg.sender] = true;
-        _totalOwners++;
         _token = IERC20(0x578b350455932aC3d0e7ce5d7fa62d7785872221);
-        _tokensNeededForOwnership = 1 * 10 **18;
     }
 
     // Returns an ERC20 standard token, which is the main token of the project
@@ -135,17 +143,15 @@ abstract contract Proxy is IProxy, IERC721Receiver {
         return _tokensNeededForOwnership;
     }
 
-    /*
-    * 
-    */
+    // Checks if the address is blacklisted
     function isBlacklisted(address account) external override view returns (bool) {
         return _blackList[account];
     }
 
     // Function for obtaining information about whether the address is in the black list
     function depositTokens(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Invalid amount");
-        require(_token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        require(amount > 0, "Proxy: Invalid amount");
+        require(_token.transferFrom(msg.sender, address(this), amount), "Proxy: Transfer failed");
         _balanceOwner[msg.sender] += amount;
     }
 
@@ -154,19 +160,11 @@ abstract contract Proxy is IProxy, IERC721Receiver {
     * At the same time, his entire deposit is returned to his balance.
     */
     function voluntarilyExit() external override onlyOwner {
-        require(!_isOwnerVotedOut[msg.sender], "You have been voted out");
+        require(!_isOwnerVotedOut[msg.sender], "Proxy: You have been voted out");
         
         uint256 balance = _balanceOwner[msg.sender];
         if (balance > 0) {
-
-            _balanceOwner[msg.sender] = 0;
-
-            if(_token.balanceOf(address(this)) >= balance) {
-                require(_token.transfer(msg.sender, balance), "Transfer failed");
-            } else {
-                IAnhydriteGlobal implementation = IAnhydriteGlobal(_implementation);
-                require(implementation.getTokens(msg.sender, balance), "Execution failed");
-            }
+            _transferTokens(msg.sender, balance);
         }
 
         _owners[msg.sender] = false;
@@ -177,23 +175,25 @@ abstract contract Proxy is IProxy, IERC721Receiver {
     
     // A function for the owner to withdraw excess tokens from his deposit
     function withdrawExcessTokens() external override onlyOwner {
-        require(!_isOwnerVotedOut[msg.sender], "You have been voted out");
+        require(!_isOwnerVotedOut[msg.sender], "Proxy: You have been voted out");
         uint256 ownerBalance = _balanceOwner[msg.sender];
         uint256 excess = 0;
 
         if (ownerBalance > _tokensNeededForOwnership) {
             excess = ownerBalance - _tokensNeededForOwnership;
+            _transferTokens(msg.sender, excess);
+        }
+    }
 
-            _balanceOwner[msg.sender] -= excess;
+    function _transferTokens(address recepient, uint256 amount) internal {
+            _balanceOwner[recepient] -= amount;
 
-            if(_token.balanceOf(address(this)) >= excess) {
-                require(_token.transfer(msg.sender, excess), "Transfer failed");
+            if(_token.balanceOf(address(this)) >= amount) {
+                require(_token.transfer(recepient, amount), "Proxy: Failed to transfer tokens");
             } else {
                 IAnhydriteGlobal implementation = IAnhydriteGlobal(_implementation);
-                require(implementation.getTokens(msg.sender, excess), "Execution failed");
+                require(implementation.getTokens(recepient, amount), "Proxy: Failed to get transfer tokens");
             }
-            
-        }
     }
 
     /*
@@ -201,16 +201,15 @@ abstract contract Proxy is IProxy, IERC721Receiver {
     * At the same time, it is impossible to transfer the global token
     */
     function rescueTokens(address tokenAddress) external override onlyOwner {
-        require(tokenAddress != address(_token), "Cannot rescue the main token");
+        require(tokenAddress != address(_token), "Proxy: Cannot rescue the main token");
     
         IERC20 rescueToken = IERC20(tokenAddress);
         uint256 balance = rescueToken.balanceOf(address(this));
     
-        require(balance > 0, "No tokens to rescue");
+        require(balance > 0, "Proxy: No tokens to rescue");
     
-        require(rescueToken.transfer(_implementation, balance), "Transfer failed");
+        require(rescueToken.transfer(_implementation, balance), "Proxy: Transfer failed");
     }
-
 
     // Internal functions and modifiers
     
@@ -228,30 +227,33 @@ abstract contract Proxy is IProxy, IERC721Receiver {
         return false;
     }
 
-    modifier canClose(address addresess, uint256 timestamp) {
-        require(addresess != address(0), "There is no open vote");
-        require(block.timestamp >= timestamp + 3 days, "Voting is still open");
+    // Modifier for checking whether 3 days have passed since the start of voting and whether it can be closed
+    modifier canClose(uint256 timestamp) {
+        require(block.timestamp >= timestamp + 3 days, "Owners: Voting is still open");
         _;
     }
 
+    // Modifier to check if the owner has the right to vote on this issue,
+    // that is, whether he has not voted before, and whether his deposit corresponds to the amount required for the right to vote
     modifier canYouVote(VoteResult memory result) {
-        require(!_hasOwnerVoted(result, msg.sender), "Already voted");
-        require(_balanceOwner[msg.sender] >= _tokensNeededForOwnership, "Insufficient tokens in staking balance");
+        require(!_hasOwnerVoted(result, msg.sender), "Owners: Already voted");
+        require(_balanceOwner[msg.sender] >= _tokensNeededForOwnership, "Votes: Insufficient tokens in staking balance");
         _;
     }
 
+    // A modifier that checks whether an address is in the list of owners, and whether a vote for exclusion is open for this address
     modifier onlyOwner() {
-        require(_owners[msg.sender], "Not an owner");
-        require(!_isOwnerVotedOut[msg.sender], "This owner is being voted out");
+        require(_owners[msg.sender], "Owners: Not an owner");
+        require(!_isOwnerVotedOut[msg.sender], "Owners: This owner is being voted out");
         _;
     }
 
     // A function for delegating calls to a global smart contract
 
     function _delegate() internal virtual {
-        require(!_stopped, "Contract is currently _stopped.");
+        require(!_stopped, "Proxy: Contract is currently _stopped.");
         address _impl = _implementation;
-        require(_impl != address(0), "Implementation == address(0)");
+        require(_impl != address(0), "Proxy: Implementation == address(0)");
 
         assembly {
             calldatacopy(0, 0, calldatasize())
@@ -284,19 +286,24 @@ abstract contract Proxy is IProxy, IERC721Receiver {
         return this.onERC721Received.selector;
     }
 
+
+    // A function to verify the identity of a global smart contract
+    function _checkContract(address contractAddress) internal view returns (bool) {
+        // We bring the address to the IERC165 interface
+        IERC165 targetContract = IERC165(contractAddress);
+
+        // We use the supportsInterface method to check interface support
+        return targetContract.supportsInterface(type(IAnhydriteGlobal).interfaceId);
+    }
 }
 
 /*
 * Implementation of voting functions
 */
 interface IVotes {
-    function getVoteForNewTokensNeeded() external view returns (uint256, uint256, uint256, uint256);
-    function getVoteForNewImplementationStatus() external view returns (address, uint256, uint256, uint256);
-    function getVoteForNewOwnerStatus() external view returns (address, uint256, uint256, uint256);
-    function getVoteForRemoveOwnerStatus() external view returns (address, uint256, uint256, uint256);
-    function getVoteForStopped() external view returns (bool, uint256, uint256, uint256);
- 
+    // A function for opening a vote on stopping or resuming the operation of a smart contract
     function startVotingForStopped(bool _proposed) external;
+    // The function of voting for stopping and resuming the work of a smart contract
     function voteForStopped(bool vote) external;
     function startVotingForNeededForOwnership(uint256 _proposed) external;
     function voteForNeededForOwnership(bool vote) external;
@@ -307,31 +314,21 @@ interface IVotes {
     function startVotingForRemoveOwner(address _proposed) external;
     function voteForRemoveOwner(bool vote) external;
 
-    function closeVoteForStopped() external;
-    function closeVoteForTokensNeeded() external;
-    function closeVoteForNewImplementation() external;
-    function closeVoteForNewOwner() external;
-    function closeVoteForRemoveOwner() external;
-
+    // Events
     event VotingForStopped(address indexed addressVoter, bool indexed vote);
     event VotingCompletedForStopped(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForStopped(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
     event VotingForTokensNeeded(address indexed addressVoter, bool indexed vote);
     event VotingCompletedForTokensNeeded(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForTokensNeeded(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
     event VotingForNewImplementation(address indexed addressVoter, bool indexed vote);
     event VotingCompletedForNewImplementation(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForNewImplementation(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
     event VotingForNewOwner(address indexed addressVoter, address indexed votingObject, bool indexed vote);
     event VotingCompletedForNewOwner(address indexed decisiveVote, address indexed votingObject, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
     event VotingForRemoveOwner(address indexed addressVoter, address indexed votingObject, bool indexed vote);
     event VotingCompletedForRemoveOwner(address indexed decisiveVote, address indexed votingObject, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForRemoveOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
     event InitiateOwnership(address indexed subject, bool indexed result);
 }
@@ -343,44 +340,9 @@ interface IVotes {
 * Implemented functions for obtaining information about active votes,
 * voting functions and closing voting functions if the decision was not made.
 */
-contract AnhydriteProxy is IVotes, Proxy {
-    
+abstract contract Votes is IVotes, Proxy {
 
-    // Function to get the status of voting for new Tokens Needed
-    function getVoteForNewTokensNeeded() public view returns (uint256, uint256, uint256, uint256) {
-        return (
-            _proposedTokensNeeded, 
-            _votesForNewOwner.isTrue.length, 
-            _votesForNewOwner.isFalse.length, 
-            _votesForNewOwner.timestamp
-        );
-    }
-
-    // Function to get the status of voting for new implementation
-    function getVoteForNewImplementationStatus() public view returns (address, uint256, uint256, uint256) {
-        return _getVote(_votesForNewImplementation, _proposedImplementation);
-    }
-
-    // Function to get the status of voting for new owner
-    function getVoteForNewOwnerStatus() public view returns (address, uint256, uint256, uint256) {
-        return _getVote(_votesForNewOwner, _proposedOwner);
-    }
-
-    // Function to get the status of voting for remove owner
-    function getVoteForRemoveOwnerStatus() public view returns (address, uint256, uint256, uint256) {
-        return _getVote(_votesForRemoveOwner, _proposedRemoveOwner);
-    }
-
-    // Function to get the status of voting for Stopped
-    function getVoteForStopped() public view returns (bool, uint256, uint256, uint256) {
-            return (
-            _proposedStopped != _stopped,
-            _votesForStopped.isTrue.length, 
-            _votesForStopped.isFalse.length, 
-            _votesForStopped.timestamp
-        );
-    }
-
+    // A function for opening a vote on stopping or resuming the operation of a smart contract
     function startVotingForStopped(bool _proposed) public onlyOwner canYouVote(_votesForStopped) {
         require(_stopped != _proposed, "Votes: This vote will not change the Stop status");
         require(_proposed != _proposedStopped, "Votes: Voting has already started");
@@ -407,12 +369,13 @@ contract AnhydriteProxy is IVotes, Proxy {
             emit VotingCompletedForStopped(msg.sender, true, votestrue, votesfalse);
             
        } else if (votesfalse * 100 > _totalOwners * 40) {
+           _proposedStopped = _stopped;
             _resetVote(_votesForStopped);
             emit VotingCompletedForStopped(msg.sender, false, votestrue, votesfalse);
-            _proposedStopped = !_proposedStopped;
         }
     }
 
+    // A function for opening a vote on changing the number of tokens required for the right to vote
     function startVotingForNeededForOwnership(uint256 _proposed) public onlyOwner canYouVote(_votesForStopped) {
         require(_proposed != 0, "Votes: The supply of need for ownership tokens cannot be zero");
         require(_tokensNeededForOwnership != _proposed, "Votes: This vote will not change the need for ownership tokens");
@@ -447,10 +410,12 @@ contract AnhydriteProxy is IVotes, Proxy {
         }
     }
 
+    // A function to open voting on the replacement of the address of the global smart contract
     function startVotingForNewImplementation(address _proposed) public onlyOwner canYouVote(_votesForStopped) {
         require(_proposed != address(0), "Votes: Cannot set null address");
         require(_implementation != _proposed, "Votes: This vote will not change the implementation address");
         require(_proposedImplementation == address(0), "Votes: Voting has already started");
+        require(_checkContract(_proposed), "Votes: The contract does not meet the standard");
         _proposedImplementation = _proposed;
         _votesForNewImplementation.timestamp = block.timestamp;
         _voteForNewImplementation(true);
@@ -518,6 +483,7 @@ contract AnhydriteProxy is IVotes, Proxy {
         }
     }
 
+    // A function to open a vote on the exclusion of the owner
     function startVotingForRemoveOwner(address _proposed) public onlyOwner canYouVote(_votesForStopped) {
         require(_proposed != address(0), "Votes: Cannot set null address");
         require(_owners[_proposed], "Votes: This address is not included in the list of owners");
@@ -560,41 +526,6 @@ contract AnhydriteProxy is IVotes, Proxy {
         }
     }
 
-    // The following functions are designed to close the vote if more than 3 days have passed and no decision has been made
-
-    function closeVoteForStopped() public onlyOwner {
-        require(_stopped != _proposedStopped, "There is no open vote");
-        emit CloseVoteForStopped(msg.sender, _votesForStopped.isTrue.length, _votesForStopped.isFalse.length);
-        _resetVote(_votesForStopped);
-        _proposedStopped = _stopped;
-        _increaseByPercent(msg.sender);
-    }
-
-    function closeVoteForTokensNeeded() public onlyOwner {
-        require(_proposedTokensNeeded != 0, "There is no open vote");
-        emit CloseVoteForStopped(msg.sender, _votesForTokensNeeded.isTrue.length, _votesForTokensNeeded.isFalse.length);
-        _resetVote(_votesForTokensNeeded);
-        _proposedTokensNeeded = 0;
-        _increaseByPercent(msg.sender);
-    }
-
-    function closeVoteForNewImplementation() public onlyOwner {
-        emit CloseVoteForNewImplementation(msg.sender, _votesForNewImplementation.isTrue.length, _votesForNewImplementation.isFalse.length);
-        _closeVote(_votesForNewImplementation, _proposedImplementation);
-    }
-
-    function closeVoteForNewOwner() public onlyOwner {
-        _token.transfer(_proposedOwner, _balanceOwner[msg.sender]);
-        emit CloseVoteForNewOwner(msg.sender, _proposedOwner, _votesForNewOwner.isTrue.length, _votesForNewOwner.isFalse.length);
-        _closeVote(_votesForNewOwner, _proposedOwner);
-    }
-
-    function closeVoteForRemoveOwner() public onlyOwner {
-        _isOwnerVotedOut[_proposedRemoveOwner] = false;
-        emit CloseVoteForRemoveOwner(msg.sender, _proposedRemoveOwner, _votesForRemoveOwner.isTrue.length, _votesForRemoveOwner.isFalse.length);
-        _closeVote(_votesForRemoveOwner, _proposedRemoveOwner);
-        _totalOwners++;
-    }
 
     // Internal functions
 
@@ -607,7 +538,7 @@ contract AnhydriteProxy is IVotes, Proxy {
         return (result.isTrue.length, result.isFalse.length);
     }
 
-    function _getVote(VoteResult memory vote, address addresess) private pure returns (address, uint256, uint256, uint256) {
+    function _getVote(VoteResult memory vote, address addresess) internal pure returns (address, uint256, uint256, uint256) {
         return (
             addresess, 
             vote.isTrue.length, 
@@ -623,18 +554,12 @@ contract AnhydriteProxy is IVotes, Proxy {
         vote.timestamp = 0;
     }
 
-    function _closeVote(VoteResult storage vote, address propose) private canClose(propose, vote.timestamp) {
-        _resetVote(vote);
-        propose = address(0);
-        _increaseByPercent(msg.sender);
-    }
-
-    function _increaseByPercent(address recepient) private {
-        uint256 percent = _tokensNeededForOwnership * 1 / 1000;
+    function _increaseByPercent(address recepient) internal {
+        uint256 percent = _tokensNeededForOwnership * 1 / 100;
         _balanceOwner[recepient] += percent;
     }
 
-    function _increaseByPercent(address[] memory addresses1, address[] memory addresses2) private {
+    function _increaseByPercent(address[] memory addresses1, address[] memory addresses2) internal {
         for (uint256 i = 0; i < addresses1.length; i++) {
             _increaseByPercent(addresses1[i]);
         }
@@ -643,9 +568,134 @@ contract AnhydriteProxy is IVotes, Proxy {
             _increaseByPercent(addresses2[j]);
         }
     }
+}
+
+interface IVotesInfo {
+    // Function to get the status of voting for new Tokens Needed
+    function getVoteForNewTokensNeeded() external view returns (uint256, uint256, uint256, uint256);
+    // Function to get the status of voting for new implementation
+    function getVoteForNewImplementationStatus() external view returns (address, uint256, uint256, uint256);
+    // Function to get the status of voting for new owner
+    function getVoteForNewOwnerStatus() external view returns (address, uint256, uint256, uint256);
+    // Function to get the status of voting for remove owner
+    function getVoteForRemoveOwnerStatus() external view returns (address, uint256, uint256, uint256);
+    // Function to get the status of voting for Stopped
+    function getVoteForStopped() external view returns (bool, uint256, uint256, uint256);
+
+    function closeVoteForStopped() external;
+    function closeVoteForTokensNeeded() external;
+    function closeVoteForNewImplementation() external;
+    function closeVoteForNewOwner() external;
+    function closeVoteForRemoveOwner() external;
+
+    // Events
+    event CloseVoteForStopped(address indexed decisiveVote, uint votesFor, uint votesAgainst);
+    event CloseVoteForTokensNeeded(address indexed decisiveVote, uint votesFor, uint votesAgainst);
+    event CloseVoteForNewImplementation(address indexed decisiveVote, uint votesFor, uint votesAgainst);
+    event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
+    event CloseVoteForRemoveOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
 }
 
+
+contract AnhydriteProxyVotes is IVotesInfo, Votes {
+    
+    
+    constructor() {
+        _implementation = address(0);
+        _owners[msg.sender] = true;
+        _totalOwners++;
+        _tokensNeededForOwnership = 1 * 10 **18;
+    }
+    
+    // Function to get the status of voting for new Tokens Needed
+    function getVoteForNewTokensNeeded() public view returns (uint256, uint256, uint256, uint256) {
+        return (
+            _proposedTokensNeeded, 
+            _votesForNewOwner.isTrue.length, 
+            _votesForNewOwner.isFalse.length, 
+            _votesForNewOwner.timestamp
+        );
+    }
+
+    // Function to get the status of voting for new implementation
+    function getVoteForNewImplementationStatus() public view returns (address, uint256, uint256, uint256) {
+        return _getVote(_votesForNewImplementation, _proposedImplementation);
+    }
+
+    // Function to get the status of voting for new owner
+    function getVoteForNewOwnerStatus() public view returns (address, uint256, uint256, uint256) {
+        return _getVote(_votesForNewOwner, _proposedOwner);
+    }
+
+    // Function to get the status of voting for remove owner
+    function getVoteForRemoveOwnerStatus() public view returns (address, uint256, uint256, uint256) {
+        return _getVote(_votesForRemoveOwner, _proposedRemoveOwner);
+    }
+
+    // Function to get the status of voting for Stopped
+    function getVoteForStopped() public view returns (bool, uint256, uint256, uint256) {
+            return (
+            _proposedStopped != _stopped,
+            _votesForStopped.isTrue.length, 
+            _votesForStopped.isFalse.length, 
+            _votesForStopped.timestamp
+        );
+    }
+    
+    // The following functions are designed to close the vote if more than 3 days have passed and no decision has been made
+
+    function closeVoteForStopped() public onlyOwner {
+        require(_stopped != _proposedStopped, "There is no open vote");
+        emit CloseVoteForStopped(msg.sender, _votesForStopped.isTrue.length, _votesForStopped.isFalse.length);
+        _closeVote(_votesForStopped);
+        _proposedStopped = _stopped;
+    }
+
+    function closeVoteForTokensNeeded() public onlyOwner {
+        require(_proposedTokensNeeded != 0, "There is no open vote");
+        emit CloseVoteForTokensNeeded(msg.sender, _votesForTokensNeeded.isTrue.length, _votesForTokensNeeded.isFalse.length);
+        _closeVote(_votesForTokensNeeded);
+        _proposedTokensNeeded = 0;
+    }
+
+    function closeVoteForNewImplementation() public onlyOwner {
+        require(_proposedImplementation != address(0), "There is no open vote");
+        emit CloseVoteForNewImplementation(msg.sender, _votesForNewImplementation.isTrue.length, _votesForNewImplementation.isFalse.length);
+        _closeVote(_votesForNewImplementation);
+        _proposedImplementation = address(0);
+    }
+
+    function closeVoteForNewOwner() public onlyOwner {
+        require(_proposedOwner != address(0), "There is no open vote");
+        _token.transfer(_proposedOwner, _balanceOwner[msg.sender]);
+        emit CloseVoteForNewOwner(msg.sender, _proposedOwner, _votesForNewOwner.isTrue.length, _votesForNewOwner.isFalse.length);
+        _closeVote(_votesForNewOwner);
+        _proposedOwner = address(0);
+    }
+
+    function closeVoteForRemoveOwner() public onlyOwner {
+        require(_proposedRemoveOwner != address(0), "There is no open vote");
+        _isOwnerVotedOut[_proposedRemoveOwner] = false;
+        emit CloseVoteForRemoveOwner(msg.sender, _proposedRemoveOwner, _votesForRemoveOwner.isTrue.length, _votesForRemoveOwner.isFalse.length);
+        _closeVote(_votesForRemoveOwner);
+        _proposedRemoveOwner = address(0);
+        _totalOwners++;
+    }
+
+    function _closeVote(VoteResult storage vote) private canClose(vote.timestamp) {
+        _resetVote(vote);
+        _increaseByPercent(msg.sender);
+    }
+}
+
+
 interface IAnhydriteGlobal {
+    function getVersion() external pure returns (uint256);
+    function addPrice(string memory name, uint256 count) external;
+    function getPrice(string memory name) external view returns (uint256);
+    function getServerFromTokenId(uint256 tokenId) external view returns (address);
+    function getTokenIdFromServer(address serverAddress) external view returns (uint256);
+    function setTokenURI(uint256 tokenId, string memory newURI) external;
     function getTokens(address to, uint256 amount) external returns (bool);
 }

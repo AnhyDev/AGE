@@ -22,17 +22,6 @@
  */
 
 interface IVotes {
-    // Function to get the status of voting for new Tokens Needed
-    function getVoteForNewTokensNeeded() external view returns (uint256, uint256, uint256, uint256);
-    // Function to get the status of voting for new implementation
-    function getVoteForNewImplementationStatus() external view returns (address, uint256, uint256, uint256);
-    // Function to get the status of voting for new owner
-    function getVoteForNewOwnerStatus() external view returns (address, uint256, uint256, uint256);
-    // Function to get the status of voting for remove owner
-    function getVoteForRemoveOwnerStatus() external view returns (address, uint256, uint256, uint256);
-    // Function to get the status of voting for Stopped
-    function getVoteForStopped() external view returns (bool, uint256, uint256, uint256);
- 
     // A function for opening a vote on stopping or resuming the operation of a smart contract
     function startVotingForStopped(bool _proposed) external;
     // The function of voting for stopping and resuming the work of a smart contract
@@ -46,32 +35,21 @@ interface IVotes {
     function startVotingForRemoveOwner(address _proposed) external;
     function voteForRemoveOwner(bool vote) external;
 
-    function closeVoteForStopped() external;
-    function closeVoteForTokensNeeded() external;
-    function closeVoteForNewImplementation() external;
-    function closeVoteForNewOwner() external;
-    function closeVoteForRemoveOwner() external;
-
     // Events
     event VotingForStopped(address indexed addressVoter, bool indexed vote);
     event VotingCompletedForStopped(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForStopped(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
     event VotingForTokensNeeded(address indexed addressVoter, bool indexed vote);
     event VotingCompletedForTokensNeeded(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForTokensNeeded(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
     event VotingForNewImplementation(address indexed addressVoter, bool indexed vote);
     event VotingCompletedForNewImplementation(address indexed decisiveVote, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForNewImplementation(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
     event VotingForNewOwner(address indexed addressVoter, address indexed votingObject, bool indexed vote);
     event VotingCompletedForNewOwner(address indexed decisiveVote, address indexed votingObject, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
     event VotingForRemoveOwner(address indexed addressVoter, address indexed votingObject, bool indexed vote);
     event VotingCompletedForRemoveOwner(address indexed decisiveVote, address indexed votingObject, bool indexed result, uint votesFor, uint votesAgainst);
-    event CloseVoteForRemoveOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
     event InitiateOwnership(address indexed subject, bool indexed result);
 }
