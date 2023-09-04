@@ -2,18 +2,17 @@
 ---
 ---
 
-## BaseProxyVoting
+
+### BaseProxyVoting
 
 
-## Functions
+#### `getProxyAddress() -> address`
 
-### `getProxyAddress() -> address`
-
-#### Description
+##### Description
 
 - Returns the address of the `_proxyContract` currently set in the smart contract.
 
-#### Parameters
+##### Parameters
 
 - None
 
@@ -23,54 +22,52 @@
 
 ---
 
-### `renounceOwnership()`
+#### `renounceOwnership()`
 
-#### Description
+##### Description
 
 - This function is overridden from the `Ownable` contract to deactivate its functionality. It will revert if called.
 
-#### Parameters
+##### Parameters
 
 - None
 
-#### Returns
+##### Returns
 
 - Reverts with the message "ProxyOwner: this function is deactivated" if called.
 
 ---
----
 
-## OwnableManager
 
-## Public Functions
 
----
+### OwnableManager
 
-### `transferOwnership(address proposedOwner)`
 
-#### Description
+#### `transferOwnership(address proposedOwner)`
+
+##### Description
 
 - Initiates the voting process for transferring the ownership of the contract to a proposed new owner.
 
-#### Parameters
+##### Parameters
 
 - **`proposedOwner`**: Address of the proposed new owner.
 
-#### Conditions
+##### Conditions
 
 - Can only be called by the proxy owner or the contract owner.
 - No active voting for a new owner should be ongoing.
 - If `_proxyContract` is set, the proposed owner should not be blacklisted and must be an owner of the proxy contract.
 
-#### Effects
+##### Effects
 
 - Sets `_proposedOwner` and initiates the voting process.
 
 ---
 
-### `voteForNewOwner(bool vote)`
+#### `voteForNewOwner(bool vote)`
 
-#### Description
+##### Description
 
 - Casts a vote for the proposed new owner of the contract.
 
@@ -84,51 +81,53 @@
 
 ---
 
-### `closeVoteForNewOwner()`
+#### `closeVoteForNewOwner()`
 
-#### Description
+##### Description
 
 - Closes the ongoing voting process for the new proposed owner.
 
-#### Conditions
+##### Conditions
 
 - Can only be called by the current contract owner.
 - There must be an active vote (`_proposedOwner` should not be zero address).
 
-#### Effects
+##### Effects
 
 - Closes the voting and resets `_proposedOwner`.
 
 ---
 
-### `getActiveForVoteOwner() -> (bool, address)`
+#### `getActiveForVoteOwner() -> (bool, address)`
 
-#### Description
+##### Description
 
 - Checks if there is active voting for a new owner and returns the proposed new owner's address.
 
-#### Conditions
+##### Conditions
 
 - An active voting session must be ongoing.
 
-#### Returns
+##### Returns
 
 - A boolean indicating if voting is active and the address of the proposed new owner.
 
 ---
----
-## TokenManager
 
-### `initiateTransfer(address recepient, uint256 amount)`
+
+
+### TokenManager
+
+#### `initiateTransfer(address recepient, uint256 amount)`
 
 Initiates a new voting process to transfer a certain amount of tokens to a specified recipient address.
 
-#### Parameters
+##### Parameters
 
 - `recepient`: The address of the recipient to whom the tokens will be transferred.
 - `amount`: The number of tokens to transfer.
 
-#### Conditions
+##### Conditions
 
 - The function can only be called by the owner or a proxy owner.
 - The `amount` parameter must not be zero.
@@ -136,51 +135,52 @@ Initiates a new voting process to transfer a certain amount of tokens to a speci
 
 ---
 
-## `voteForTransfer(bool vote)`
+### `voteForTransfer(bool vote)`
 
-### Description
+#### Description
 
 Casts a vote for or against the proposed token transfer.
 
-#### Parameters
+##### Parameters
 
 - `vote`: A boolean value where `true` stands for a vote in favor and `false` stands for a vote against.
 
-#### Conditions
+##### Conditions
 
 - The function can only be called by the owner or a proxy owner.
 - An active vote for a token transfer must be in place.
 
 ---
 
-## `closeVoteForTransfer()`
+### `closeVoteForTransfer()`
 
-### Description
+#### Description
 
 Closes the active voting process for the token transfer.
 
-#### Conditions
+##### Conditions
 
 - The function can only be called by the owner.
 - An active vote for a token transfer must be in place.
 
 ---
 
-## `getActiveForVoteTransfer() -> (address, uint256)`
+### `getActiveForVoteTransfer() -> (address, uint256)`
 
-### Description
+#### Description
 
 Checks if there is an active voting process for a token transfer and returns the recipient and amount proposed.
 
-#### Conditions
+##### Conditions
 
 - An active vote for a token transfer must be in place.
 
-#### Returns
+##### Returns
 
 - The recipient address and the amount of tokens proposed for the transfer.
 ---
----
+
+
 
 ### ProxyManager Smart Contract
 
@@ -285,3 +285,116 @@ Checks if there is an active voting process for a token transfer and returns the
 - The contract must be the owner of the specified ERC721 token.
 
 ---
+
+# Anhydrite Smart Contract Documentation
+
+The Anhydrite smart contract is an ERC20 token contract with additional functionalities for managing finances and token burning.
+
+## Table of Contents
+
+- [Constants](#constants)
+- [Constructor](#constructor)
+- [Public Functions](#public-functions)
+- [Internal Functions](#internal-functions)
+- [Interfaces](#interfaces)
+
+---
+
+## Constants
+
+### `MAX_SUPPLY`
+
+- **Type**: `uint256`
+- **Description**: The maximum supply for the Anhydrite token. Set at 360,000,000 tokens.
+
+### `ERC20ReceivedMagic`
+
+- **Type**: `bytes4`
+- **Description**: A magic value for validating ERC20 token transfers to contract addresses.
+
+---
+
+## Constructor
+
+### `constructor()`
+
+- **Description**: Initializes the token with the name "Anhydrite" and symbol "ANH". Mints 70,000,000 tokens.
+
+---
+
+## Public Functions
+
+### `getMaxSupply() -> uint256`
+
+- **Description**: Returns the maximum possible supply of the Anhydrite token.
+  
+---
+
+### `transferForProxy(uint256 amount)`
+
+- **Parameters**: 
+  - `amount`: The amount of tokens to transfer.
+  
+- **Description**: Allows the proxy smart contract to activate this feature to transfer a specified amount of tokens.
+
+- **Conditions**: 
+  - Can only be called by the proxy smart contract.
+  
+---
+
+### `transfer(address to, uint256 amount) -> bool`
+
+- **Parameters**:
+  - `to`: Recipient address.
+  - `amount`: The amount to transfer.
+
+- **Description**: Transfers tokens to the specified address and invokes `_onERC20Received` function.
+
+- **Returns**: 
+  - `true`: If the operation is successful.
+
+---
+
+### `transferFrom(address from, address to, uint256 amount) -> bool`
+
+- **Parameters**:
+  - `from`: Source address.
+  - `to`: Destination address.
+  - `amount`: The amount to transfer.
+
+- **Description**: Transfers tokens from one address to another and invokes `_onERC20Received` function.
+
+- **Returns**: 
+  - `true`: If the operation is successful.
+
+---
+
+## Internal Functions
+
+### `_transferFor(address recipient, uint256 amount)`
+
+- **Description**: Handles token transfers internally. Prioritizes transferring from contract's balance; if insufficient, mints new tokens.
+
+- **Conditions**:
+  - The total minted tokens must not exceed `MAX_SUPPLY`.
+
+---
+
+### `_mint(address account, uint256 amount)`
+
+- **Description**: Overrides the `_mint` function from the ERC20 standard. Ensures the total minted tokens do not exceed `MAX_SUPPLY`.
+
+---
+
+### `_onERC20Received(address _to, uint256 _amount)`
+
+- **Description**: Validates if the receiving contract can handle ERC20 tokens using ERC165.
+
+---
+
+## Interfaces
+
+- `IProxy`
+- `IERC20Receiver`
+
+
