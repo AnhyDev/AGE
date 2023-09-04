@@ -1,5 +1,5 @@
 
-# 📜 Full implementation of the Anhydrite Smart Contract Documentation
+# 🔗 Full implementation of the Anhydrite Smart Contract
 ---
 <br>
 
@@ -297,7 +297,7 @@ Checks if there is an active voting process for a token transfer and returns the
 
 
 
-## 📜 Anhydrite Smart Contract Documentation
+## 💎 Anhydrite Smart Contract Documentation
 ***
 
 The Anhydrite smart contract is an ERC20 token contract with additional functionalities for managing finances and token burning.
