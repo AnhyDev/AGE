@@ -54,34 +54,30 @@ contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
     function _transferFor(address recepient, uint256 amount) internal override {
         if (balanceOf(address(this)) >= amount) {
             _transfer(address(this), recepient, amount);
-        } else if (totalSupply() + amount <= MAX_SUPPLY) {
+        } else if (totalSupply() + amount <= MAX_SUPPLY && recepient != address(0)) {
             _mint(recepient, amount);
         }
     }
 
-    function transfer(address to, uint256 amount) public virtual override returns (bool) {
-        address owner = _msgSender();
-        _transfer(owner, to, amount);
-        _onERC20Received(to, amount);
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) public virtual override returns (bool) {
-        address spender = _msgSender();
-        _spendAllowance(from, spender, amount);
-        _transfer(from, to, amount);
-        _onERC20Received(to, amount);
-        return true;
-    }
-
-    function _onERC20Received(address _to, uint256 _amount) private {
+    function _onERC20Received(address _from, address _to, uint256 _amount) private {
         if (Address.isContract(_to)) {
-            IERC165 targetContract = IERC165(_to);
-            if (targetContract.supportsInterface(type(IERC20Receiver).interfaceId)) {
-                
-                bytes4 retval = IERC20Receiver(_to).onERC20Received(_msgSender(), _amount);
-                require(retval == ERC20ReceivedMagic, "Anhydrite: Target contract cannot handle ERC20 tokens");
+            bytes4 interfaceId = type(IERC20Receiver).interfaceId;
+            bytes memory data = abi.encodeWithSelector(interfaceId, _from, _msgSender(), _amount);
+
+            // low-level call
+            (bool success, bytes memory returnData) = _to.call(data);
+
+            if (success && returnData.length > 0) {
+                bytes4 retval = abi.decode(returnData, (bytes4));
+                require(retval == ERC20ReceivedMagic, "Anhydrite: An invalid magic ID was returned");
             }
+        }
+    }
+
+
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        if(from != address(0) && to != address(0)) {
+        _onERC20Received(from, to, amount);
         }
     }
 
