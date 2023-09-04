@@ -141,7 +141,7 @@ Initiates a new voting process to transfer a certain amount of tokens to a speci
 
 ---
 
-### `voteForTransfer(bool vote)`
+#### `voteForTransfer(bool vote)`
 
 #### Description
 
@@ -158,7 +158,7 @@ Casts a vote for or against the proposed token transfer.
 
 ---
 
-### `closeVoteForTransfer()`
+#### `closeVoteForTransfer()`
 
 #### Description
 
@@ -171,7 +171,7 @@ Closes the active voting process for the token transfer.
 
 ---
 
-### `getActiveForVoteTransfer() -> (address, uint256)`
+#### `getActiveForVoteTransfer() -> (address, uint256)`
 
 #### Description
 
