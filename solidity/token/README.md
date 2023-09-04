@@ -1,9 +1,9 @@
-# Full implementation of the Anhydrite smart contract
+# Full implementation of the Anhydrite Smart Contract Documentation
 ---
 ---
 
 
-### BaseProxyVoting
+### BaseProxyVoting Smart Contract Documentation
 
 
 #### `getProxyAddress() -> address`
@@ -40,7 +40,7 @@
 
 
 
-### OwnableManager
+### OwnableManager Smart Contract Documentation
 
 
 #### `transferOwnership(address proposedOwner)`
@@ -116,7 +116,7 @@
 
 
 
-### TokenManager
+### TokenManager Smart Contract Documentation
 
 #### `initiateTransfer(address recepient, uint256 amount)`
 
@@ -182,9 +182,9 @@ Checks if there is an active voting process for a token transfer and returns the
 
 
 
-### ProxyManager Smart Contract
+### ProxyManager Smart Contract Documentation
 
----
+
 
 #### `initiateNewProxy(address proposedNewProxy)`
 
@@ -238,9 +238,9 @@ Checks if there is an active voting process for a token transfer and returns the
 
 ---
 
-### FinanceManager Smart Contract
+### FinanceManager Smart Contract Documentation
 
----
+
 
 #### `withdrawMoney(uint256 amount)`
 
@@ -286,11 +286,11 @@ Checks if there is an active voting process for a token transfer and returns the
 
 ---
 
-# Anhydrite Smart Contract Documentation
+## Anhydrite Smart Contract Documentation
 
 The Anhydrite smart contract is an ERC20 token contract with additional functionalities for managing finances and token burning.
 
-## Table of Contents
+### Table of Contents
 
 - [Constants](#constants)
 - [Constructor](#constructor)
@@ -300,37 +300,37 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 ---
 
-## Constants
+### Constants
 
-### `MAX_SUPPLY`
+#### `MAX_SUPPLY`
 
 - **Type**: `uint256`
 - **Description**: The maximum supply for the Anhydrite token. Set at 360,000,000 tokens.
 
-### `ERC20ReceivedMagic`
+#### `ERC20ReceivedMagic`
 
 - **Type**: `bytes4`
 - **Description**: A magic value for validating ERC20 token transfers to contract addresses.
 
 ---
 
-## Constructor
+### Constructor
 
-### `constructor()`
+#### `constructor()`
 
 - **Description**: Initializes the token with the name "Anhydrite" and symbol "ANH". Mints 70,000,000 tokens.
 
 ---
 
-## Public Functions
+### Public Functions
 
-### `getMaxSupply() -> uint256`
+#### `getMaxSupply() -> uint256`
 
 - **Description**: Returns the maximum possible supply of the Anhydrite token.
   
 ---
 
-### `transferForProxy(uint256 amount)`
+#### `transferForProxy(uint256 amount)`
 
 - **Parameters**: 
   - `amount`: The amount of tokens to transfer.
@@ -342,7 +342,7 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
   
 ---
 
-### `transfer(address to, uint256 amount) -> bool`
+#### `transfer(address to, uint256 amount) -> bool`
 
 - **Parameters**:
   - `to`: Recipient address.
@@ -355,7 +355,7 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 ---
 
-### `transferFrom(address from, address to, uint256 amount) -> bool`
+#### `transferFrom(address from, address to, uint256 amount) -> bool`
 
 - **Parameters**:
   - `from`: Source address.
@@ -369,9 +369,9 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 ---
 
-## Internal Functions
+### Internal Functions
 
-### `_transferFor(address recipient, uint256 amount)`
+#### `_transferFor(address recipient, uint256 amount)`
 
 - **Description**: Handles token transfers internally. Prioritizes transferring from contract's balance; if insufficient, mints new tokens.
 
@@ -380,19 +380,19 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 ---
 
-### `_mint(address account, uint256 amount)`
+#### `_mint(address account, uint256 amount)`
 
 - **Description**: Overrides the `_mint` function from the ERC20 standard. Ensures the total minted tokens do not exceed `MAX_SUPPLY`.
 
 ---
 
-### `_onERC20Received(address _to, uint256 _amount)`
+#### `_onERC20Received(address _to, uint256 _amount)`
 
 - **Description**: Validates if the receiving contract can handle ERC20 tokens using ERC165.
 
 ---
 
-## Interfaces
+### Interfaces
 
 - `IProxy`
 - `IERC20Receiver`
