@@ -316,13 +316,13 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 #### `MAX_SUPPLY`
 
-- **Type**: `uint256`
-- **Description**: The maximum supply for the Anhydrite token. Set at 360,000,000 tokens.
+- Represents the maximum supply of tokens.
+- Value: `360000000 * 10 ** 18`
 
 #### `ERC20ReceivedMagic`
 
-- **Type**: `bytes4`
-- **Description**: A magic value for validating ERC20 token transfers to contract addresses.
+- Represents a magic value for the ERC20 received event.
+- Value: `bytes4(keccak256("onERC20Received(address,uint256)"))`
 
 ---
 
@@ -330,7 +330,8 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 #### `constructor()`
 
-- **Description**: Initializes the token with the name "Anhydrite" and symbol "ANH". Mints 70,000,000 tokens.
+- Initializes the contract with `Anhydrite` as its name and `ANH` as its symbol.
+- Mints `70000000 * 10 ** decimals()` tokens to the contract's address.
 
 ---
 
@@ -338,75 +339,84 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 #### `getMaxSupply() -> uint256`
 
-- **Description**: Returns the maximum possible supply of the Anhydrite token.
-  
+##### Description
+- Returns the maximum supply of tokens.
+
+##### Returns
+- Returns `MAX_SUPPLY`.
+
 ---
 
 #### `transferForProxy(uint256 amount)`
 
-- **Parameters**: 
-  - `amount`: The amount of tokens to transfer.
-  
-- **Description**: Allows the proxy smart contract to activate this feature to transfer a specified amount of tokens.
+##### Description
+- Allows the proxy smart contract to transfer a specified amount of tokens.
 
-- **Conditions**: 
-  - Can only be called by the proxy smart contract.
-  
----
+##### Parameters
+- **amount**: The amount of tokens to transfer.
 
-#### `transfer(address to, uint256 amount) -> bool`
-
-- **Parameters**:
-  - `to`: Recipient address.
-  - `amount`: The amount to transfer.
-
-- **Description**: Transfers tokens to the specified address and invokes `_onERC20Received` function.
-
-- **Returns**: 
-  - `true`: If the operation is successful.
-
----
-
-#### `transferFrom(address from, address to, uint256 amount) -> bool`
-
-- **Parameters**:
-  - `from`: Source address.
-  - `to`: Destination address.
-  - `amount`: The amount to transfer.
-
-- **Description**: Transfers tokens from one address to another and invokes `_onERC20Received` function.
-
-- **Returns**: 
-  - `true`: If the operation is successful.
+##### Conditions
+- Can only be called by the proxy smart contract.
 
 ---
 
 ### Internal Functions
 
-#### `_transferFor(address recipient, uint256 amount)`
+#### `_transferFor(address recepient, uint256 amount)`
 
-- **Description**: Handles token transfers internally. Prioritizes transferring from contract's balance; if insufficient, mints new tokens.
+##### Description
+- Transfers tokens or mints new tokens to the recipient.
 
-- **Conditions**:
-  - The total minted tokens must not exceed `MAX_SUPPLY`.
+##### Parameters
+- **recepient**: Address of the recipient.
+- **amount**: The amount of tokens to transfer or mint.
+
+##### Conditions
+- The total supply after minting should not exceed `MAX_SUPPLY`.
+- The recipient should not be the zero address.
+
+---
+
+#### `_onERC20Received(address _from, address _to, uint256 _amount)`
+
+##### Description
+- Handles received ERC20 tokens and optionally calls a receiver contract.
+
+##### Parameters
+- **_from**: Sender address.
+- **_to**: Receiver address.
+- **_amount**: Amount of tokens.
+
+##### Conditions
+- Called only internally.
+
+---
+
+#### `_afterTokenTransfer(address from, address to, uint256 amount)`
+
+##### Description
+- Overrides the `_afterTokenTransfer` method to include `_onERC20Received`.
+
+##### Parameters
+- **from**: Sender address.
+- **to**: Receiver address.
+- **amount**: Amount of tokens.
+
+##### Conditions
+- Both `from` and `to` addresses should not be zero.
 
 ---
 
 #### `_mint(address account, uint256 amount)`
 
-- **Description**: Overrides the `_mint` function from the ERC20 standard. Ensures the total minted tokens do not exceed `MAX_SUPPLY`.
+##### Description
+- Mints new tokens.
+
+##### Parameters
+- **account**: Address receiving the minted tokens.
+- **amount**: The amount of tokens to mint.
+
+##### Conditions
+- Overrides the `_mint` method to include a check for `MAX_SUPPLY`.
 
 ---
-
-#### `_onERC20Received(address _to, uint256 _amount)`
-
-- **Description**: Validates if the receiving contract can handle ERC20 tokens using ERC165.
-
----
-
-### Interfaces
-
-- `IProxy`
-- `IERC20Receiver`
-
-
