@@ -1,9 +1,12 @@
+
 # Full implementation of the Anhydrite Smart Contract Documentation
 ---
----
+<br>
+
 
 
 ### BaseProxyVoting Smart Contract Documentation
+***
 
 
 #### `getProxyAddress() -> address`
@@ -37,10 +40,11 @@
 - Reverts with the message "ProxyOwner: this function is deactivated" if called.
 
 ---
-
+<br>
 
 
 ### OwnableManager Smart Contract Documentation
+***
 
 
 #### `transferOwnership(address proposedOwner)`
@@ -113,10 +117,12 @@
 - A boolean indicating if voting is active and the address of the proposed new owner.
 
 ---
-
+<br>
 
 
 ### TokenManager Smart Contract Documentation
+***
+
 
 #### `initiateTransfer(address recepient, uint256 amount)`
 
@@ -179,11 +185,11 @@ Checks if there is an active voting process for a token transfer and returns the
 
 - The recipient address and the amount of tokens proposed for the transfer.
 ---
-
+<br>
 
 
 ### ProxyManager Smart Contract Documentation
-
+***
 
 
 #### `initiateNewProxy(address proposedNewProxy)`
@@ -237,9 +243,11 @@ Checks if there is an active voting process for a token transfer and returns the
 - An active voting process must be in place.
 
 ---
+<br>
+
 
 ### FinanceManager Smart Contract Documentation
-
+***
 
 
 #### `withdrawMoney(uint256 amount)`
@@ -285,8 +293,12 @@ Checks if there is an active voting process for a token transfer and returns the
 - The contract must be the owner of the specified ERC721 token.
 
 ---
+<br>
+
+
 
 ## Anhydrite Smart Contract Documentation
+***
 
 The Anhydrite smart contract is an ERC20 token contract with additional functionalities for managing finances and token burning.
 
