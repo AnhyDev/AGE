@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /*
  * Copyright (C) 2023 Anhydrite Gaming Ecosystem
@@ -31,11 +30,14 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
  * with the software or the use or other dealings in the software.
  */
 
-contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
+
+contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager, ERC20, ERC20Burnable {
     using ERC165Checker for address;
 
     uint256 private constant MAX_SUPPLY = 360000000 * 10 ** 18;
     bytes4 constant ERC20ReceivedMagic = bytes4(keccak256("onERC20Received(address,uint256)"));
+
+    event AnhydriteTokensReceivedProcessed(address indexed from, address indexed who, address indexed whom, uint256 amount);
 
     constructor() ERC20("Anhydrite", "ANH") {
         _mint(address(this), 70000000 * 10 ** decimals());
@@ -49,6 +51,10 @@ contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
         address proxy = address(_proxyContract);
         require(_msgSender() == proxy, "Anhydrite: Only a proxy smart contract can activate this feature");
         _transferFor(proxy, amount);
+    }
+
+    function transferOwnership(address proposedOwner) public override (Ownable, OwnableManager) {
+        OwnableManager.transferOwnership(proposedOwner);
     }
 
     function _transferFor(address recepient, uint256 amount) internal override {
@@ -70,10 +76,10 @@ contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
             if (success && returnData.length > 0) {
                 bytes4 retval = abi.decode(returnData, (bytes4));
                 require(retval == ERC20ReceivedMagic, "Anhydrite: An invalid magic ID was returned");
+                emit AnhydriteTokensReceivedProcessed(_from, _msgSender(), _to, _amount);
             }
         }
     }
-
 
     function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
         if(from != address(0) && to != address(0)) {
@@ -106,5 +112,5 @@ interface IProxy {
 }
 
 interface IERC20Receiver {
-    function onERC20Received(address _from, uint256 _amount) external returns (bytes4);
+    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
 }

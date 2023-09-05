@@ -312,7 +312,7 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 
 ---
 
-### Constants
+## Constants
 
 #### `MAX_SUPPLY`
 
@@ -420,3 +420,8 @@ The Anhydrite smart contract is an ERC20 token contract with additional function
 - Overrides the `_mint` method to include a check for `MAX_SUPPLY`.
 
 ---
+
+### Interfaces
+
+- `IProxy`
+- `IERC20Receiver`

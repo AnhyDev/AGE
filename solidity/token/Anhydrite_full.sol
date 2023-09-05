@@ -99,13 +99,179 @@ abstract contract BaseProxyVoting is Ownable {
         _;
     }
 
+    modifier hasNotVoted(VoteResult memory result) {
+        require(!_hasOwnerVoted(result, msg.sender), "Owners: Already voted");
+        _;
+    }
+
     function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
         _resetVote(vote);
+    }
+
+    function _checkIProxyContract(address contractAddress) internal view returns (bool) {
+
+        if (Address.isContract(contractAddress)) {
+            IERC165 targetContract = IERC165(contractAddress);
+            return targetContract.supportsInterface(type(IProxy).interfaceId);
+        }
+
+        return false;
     }
 
     // This override function and is deactivated
     function renounceOwnership() public view override onlyOwner {
         revert("ProxyOwner: this function is deactivated");
+    }
+}
+
+abstract contract FinanceManager is BaseProxyVoting {
+
+   // Function for transferring Ether
+    function withdrawMoney(uint256 amount) external onlyOwner {
+        address payable recipient = payable(_proxyContract.getImplementation());
+        require(address(this).balance >= amount, "Contract has insufficient balance");
+        recipient.transfer(amount);
+    }
+
+    // Function for transferring ERC20 tokens
+    function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
+        IERC20 token = IERC20(_tokenAddress);
+        require(token.balanceOf(address(this)) >= _amount, "Not enough tokens on contract balance");
+        token.transfer(_proxyContract.getImplementation(), _amount);
+    }
+
+    // Function for transferring ERC721 tokens
+    function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
+        IERC721 token = IERC721(_tokenAddress);
+        require(token.ownerOf(_tokenId) == address(this), "The contract is not the owner of this token");
+        token.safeTransferFrom(address(this), _proxyContract.getImplementation(), _tokenId);
+    }
+
+}
+
+abstract contract TokenManager is BaseProxyVoting {
+
+    address internal _proposedTransferRecepient;
+    uint256 internal _proposedTransferAmount;
+    VoteResult internal _votesForTransfer;
+
+    event VotingForTransfer(address indexed voter, address recepient, uint256 amount, bool vote);
+    event VotingTransferCompleted(address indexed voter, address recepient, uint256 amount, bool vote, uint votesFor, uint votesAgainst);
+
+
+    // 
+    function initiateTransfer(address recepient, uint256 amount) public onlyProxyOwner(msg.sender) {
+        require(amount != 0, "TokenManager: Incorrect amount");
+        require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
+        if (address(_proxyContract) != address(0)) {
+            require(!_proxyContract.isBlacklisted(recepient), "TokenManager: this address is blacklisted");
+        }
+
+        _proposedTransferRecepient = recepient;
+        _proposedTransferAmount = amount;
+        _votesForTransfer = VoteResult(new address[](0), new address[](0), block.timestamp);
+        _voteForTransfer(true);
+    }
+
+    function voteForTransfer(bool vote) external onlyProxyOwner(msg.sender) {
+        _voteForTransfer(vote);
+    }
+
+    // 
+    function _voteForTransfer(bool vote) internal hasNotVoted(_votesForTransfer) {
+        require(_proposedTransferAmount != 0, "TokenManager: There is no active voting on this issue");
+
+        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForTransfer, vote);
+
+        emit VotingForTransfer(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote);
+
+        if (votestrue * 100 >= _totalOwners * 60) {
+            _transferFor(_proposedTransferRecepient, _proposedTransferAmount);
+            _resetVote(_votesForTransfer);
+            emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
+            _proposedTransferRecepient = address(0);
+            _proposedTransferAmount = 0;
+        } else if (votesfalse * 100 > _totalOwners * 40) {
+            _resetVote(_votesForTransfer);
+            emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
+            _proposedTransferRecepient = address(0);
+            _proposedTransferAmount = 0;
+        }
+    }
+
+    function _transferFor(address recepient, uint256 amount) internal virtual;
+
+    function closeVoteForTransfer() public onlyOwner {
+        require(_proposedTransferRecepient != address(0), "There is no open vote");
+        _closeVote(_votesForTransfer);
+        _proposedTransferRecepient = address(0);
+            _proposedTransferAmount = 0;
+    }
+
+    // 
+    function getActiveForVoteTransfer() external view returns (address, uint256) {
+        require(_proposedTransferRecepient != address(0), "VotingOwner: re is no active voting");
+        return (_proposedTransferRecepient, _proposedTransferAmount);
+    }
+}
+
+abstract contract ProxyManager is BaseProxyVoting {
+
+    address internal _proposedProxy;
+    VoteResult internal _votesForNewProxy;
+
+    event VotingForNewProxy(address indexed voter, address proposedProxy, bool vote);
+    event VotingONewProxyCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
+
+
+    // 
+    function initiateNewProxy(address proposedNewProxy) public onlyProxyOwner(msg.sender) {
+        require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
+        require(_checkIProxyContract(proposedNewProxy), "ProxyManager: This address does not represent a contract that implements the IProxy interface.");
+
+        _proposedProxy = proposedNewProxy;
+        _votesForNewProxy = VoteResult(new address[](0), new address[](0), block.timestamp);
+        _voteForNewProxy(true);
+    }
+
+    function voteForNewProxy(bool vote) external onlyProxyOwner(msg.sender) {
+        _voteForNewProxy(vote);
+    }
+
+    // 
+    function _voteForNewProxy(bool vote) internal hasNotVoted(_votesForNewProxy) {
+        require(_isActiveForVoteNewProxy(), "ProxyManager: there are no votes at this address");
+
+        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewProxy, vote);
+
+        emit VotingForNewProxy(msg.sender, _proposedProxy, vote);
+
+        if (votestrue * 100 >= _totalOwners * 70) {
+            _proxyContract = IProxy(_proposedProxy);
+            _resetVote(_votesForNewProxy);
+            emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
+            _proposedProxy = address(0);
+        } else if (votesfalse * 100 > _totalOwners * 30) {
+            _resetVote(_votesForNewProxy);
+            emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
+            _proposedProxy = address(0);
+        }
+    }
+
+    function closeVoteForNewProxy() public onlyOwner {
+        require(_proposedProxy != address(0), "There is no open vote");
+        _closeVote(_votesForNewProxy);
+        _proposedProxy = address(0);
+    }
+
+    // 
+    function getActiveForVoteNewProxy() external view returns (bool, address) {
+        require(_isActiveForVoteNewProxy(), "OwnableManager: re is no active voting");
+        return (_isActiveForVoteNewProxy(), _proposedProxy);
+    }
+
+    function _isActiveForVoteNewProxy() internal view returns (bool) {
+        return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract);
     }
 }
 
@@ -118,8 +284,8 @@ abstract contract OwnableManager is BaseProxyVoting {
     event VotingOwnerCompleted(address indexed voter, address votingSubject, bool vote, uint votesFor, uint votesAgainst);
 
 
-    // Please provide the address of the new owner for the smart contract, override function
-    function transferOwnership(address proposedOwner) public override onlyProxyOwner(msg.sender) {
+    // 
+    function transferOwnership(address proposedOwner) public override virtual onlyProxyOwner(msg.sender) {
         require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
         if (address(_proxyContract) != address(0)) {
             require(!_proxyContract.isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
@@ -131,14 +297,13 @@ abstract contract OwnableManager is BaseProxyVoting {
         _voteForNewOwner(true);
     }
 
-    function voteForNewOwner(bool vote) external onlyProxyOwner(_proposedOwner) {
+    function voteForNewOwner(bool vote) external onlyProxyOwner(msg.sender) {
         _voteForNewOwner(vote);
     }
 
     // Voting for the address of the new owner of the smart contract 
-    function _voteForNewOwner(bool vote) internal onlyProxyOwner(msg.sender) {
+    function _voteForNewOwner(bool vote) internal hasNotVoted(_votesForNewOwner) {
         require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
-        require(!_hasOwnerVoted(_votesForNewOwner, msg.sender), "OwnableManager: Already voted");
 
         (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
 
@@ -173,163 +338,14 @@ abstract contract OwnableManager is BaseProxyVoting {
     }
 }
 
-abstract contract TokenManager is OwnableManager {
 
-    address internal _proposedTransferRecepient;
-    uint256 internal _proposedTransferAmount;
-    VoteResult internal _votesForTransfer;
-
-    event VotingForTransfer(address indexed voter, address recepient, uint256 amount, bool vote);
-    event VotingTransferCompleted(address indexed voter, address recepient, uint256 amount, bool vote, uint votesFor, uint votesAgainst);
-
-
-    // Please provide the address of the new owner for the smart contract, override function
-    function initiateTransfer(address recepient, uint256 amount) public onlyProxyOwner(msg.sender) {
-        require(amount != 0, "TokenManager: Incorrect amount");
-        require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
-        if (address(_proxyContract) != address(0)) {
-            require(!_proxyContract.isBlacklisted(recepient), "TokenManager: this address is blacklisted");
-        }
-
-        _proposedTransferRecepient = recepient;
-        _proposedTransferAmount = amount;
-        _votesForTransfer = VoteResult(new address[](0), new address[](0), block.timestamp);
-        _voteForTransfer(true);
-    }
-
-    function voteForTransfer(bool vote) external onlyProxyOwner(msg.sender) {
-        _voteForTransfer(vote);
-    }
-
-    // Voting for the address of the new owner of the smart contract 
-    function _voteForTransfer(bool vote) internal {
-        require(_proposedTransferAmount != 0, "TokenManager: There is no active voting on this issue");
-        require(!_hasOwnerVoted(_votesForTransfer, msg.sender), "VotingOwner: Already voted");
-
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForTransfer, vote);
-
-        emit VotingForTransfer(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote);
-
-        if (votestrue * 100 >= _totalOwners * 60) {
-            _transferFor(_proposedTransferRecepient, _proposedTransferAmount);
-            _resetVote(_votesForTransfer);
-            emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
-            _proposedTransferRecepient = address(0);
-            _proposedTransferAmount = 0;
-        } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForTransfer);
-            emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
-            _proposedTransferRecepient = address(0);
-            _proposedTransferAmount = 0;
-        }
-    }
-
-    function _transferFor(address recepient, uint256 amount) internal virtual;
-
-    function closeVoteForTransfer() public onlyOwner {
-        require(_proposedTransferRecepient != address(0), "There is no open vote");
-        _closeVote(_votesForTransfer);
-        _proposedTransferRecepient = address(0);
-            _proposedTransferAmount = 0;
-    }
-
-    // Check if voting is enabled for new contract owner and their address.
-    function getActiveForVoteTransfer() external view returns (address, uint256) {
-        require(_proposedTransferRecepient != address(0), "VotingOwner: re is no active voting");
-        return (_proposedTransferRecepient, _proposedTransferAmount);
-    }
-}
-
-abstract contract ProxyManager is TokenManager {
-
-    address internal _proposedProxy;
-    VoteResult internal _votesForNewProxy;
-
-    event VotingForNewProxy(address indexed voter, address proposedProxy, bool vote);
-    event VotingONewProxyCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
-
-
-    // Please provide the address of the new owner for the smart contract, override function
-    function initiateNewProxy(address proposedNewProxy) public onlyProxyOwner(msg.sender) {
-        require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
-
-        _proposedProxy = proposedNewProxy;
-        _votesForNewProxy = VoteResult(new address[](0), new address[](0), block.timestamp);
-        _voteForNewProxy(true);
-    }
-
-    function voteForNewProxy(bool vote) external onlyProxyOwner(msg.sender) {
-        _voteForNewProxy(vote);
-    }
-
-    // Voting for the address of the new owner of the smart contract 
-    function _voteForNewProxy(bool vote) internal {
-        require(_isActiveForVoteNewProxy(), "ProxyManager: there are no votes at this address");
-        require(!_hasOwnerVoted(_votesForNewProxy, msg.sender), "ProxyManager: Already voted");
-
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewProxy, vote);
-
-        emit VotingForNewProxy(msg.sender, _proposedProxy, vote);
-
-        if (votestrue * 100 >= _totalOwners * 70) {
-            _proxyContract = IProxy(_proposedProxy);
-            _resetVote(_votesForNewProxy);
-            emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
-            _proposedProxy = address(0);
-        } else if (votesfalse * 100 > _totalOwners * 30) {
-            _resetVote(_votesForNewProxy);
-            emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
-            _proposedProxy = address(0);
-        }
-    }
-
-    function closeVoteForNewProxy() public onlyOwner {
-        require(_proposedProxy != address(0), "There is no open vote");
-        _closeVote(_votesForNewProxy);
-        _proposedProxy = address(0);
-    }
-
-    // Check if voting is enabled for new contract owner and their address.
-    function getActiveForVoteNewProxy() external view returns (bool, address) {
-        require(_isActiveForVoteNewProxy(), "OwnableManager: re is no active voting");
-        return (_isActiveForVoteNewProxy(), _proposedProxy);
-    }
-
-    function _isActiveForVoteNewProxy() internal view returns (bool) {
-        return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract);
-    }
-}
-
-abstract contract FinanceManager is ProxyManager {
-
-   /// @notice Function for transferring Ether
-    function withdrawMoney(uint256 amount) external onlyOwner {
-        address payable recipient = payable(_proxyContract.getImplementation());
-        require(address(this).balance >= amount, "Contract has insufficient balance");
-        recipient.transfer(amount);
-    }
-
-    /// @notice Function for transferring ERC20 tokens
-    function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
-        IERC20 token = IERC20(_tokenAddress);
-        require(token.balanceOf(address(this)) >= _amount, "Not enough tokens on contract balance");
-        token.transfer(_proxyContract.getImplementation(), _amount);
-    }
-
-    /// @notice Function for transferring ERC721 tokens
-    function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
-        IERC721 token = IERC721(_tokenAddress);
-        require(token.ownerOf(_tokenId) == address(this), "The contract is not the owner of this token");
-        token.safeTransferFrom(address(this), _proxyContract.getImplementation(), _tokenId);
-    }
-
-}
-
-contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
+contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager, ERC20, ERC20Burnable {
     using ERC165Checker for address;
 
     uint256 private constant MAX_SUPPLY = 360000000 * 10 ** 18;
     bytes4 constant ERC20ReceivedMagic = bytes4(keccak256("onERC20Received(address,uint256)"));
+
+    event AnhydriteTokensReceivedProcessed(address indexed from, address indexed who, address indexed whom, uint256 amount);
 
     constructor() ERC20("Anhydrite", "ANH") {
         _mint(address(this), 70000000 * 10 ** decimals());
@@ -343,6 +359,10 @@ contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
         address proxy = address(_proxyContract);
         require(_msgSender() == proxy, "Anhydrite: Only a proxy smart contract can activate this feature");
         _transferFor(proxy, amount);
+    }
+
+    function transferOwnership(address proposedOwner) public override (Ownable, OwnableManager) {
+        OwnableManager.transferOwnership(proposedOwner);
     }
 
     function _transferFor(address recepient, uint256 amount) internal override {
@@ -364,10 +384,10 @@ contract Anhydrite is FinanceManager, ERC20, ERC20Burnable {
             if (success && returnData.length > 0) {
                 bytes4 retval = abi.decode(returnData, (bytes4));
                 require(retval == ERC20ReceivedMagic, "Anhydrite: An invalid magic ID was returned");
+                emit AnhydriteTokensReceivedProcessed(_from, _msgSender(), _to, _amount);
             }
         }
     }
-
 
     function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
         if(from != address(0) && to != address(0)) {
@@ -400,5 +420,5 @@ interface IProxy {
 }
 
 interface IERC20Receiver {
-    function onERC20Received(address _from, address _whom, uint256 _amount) external returns (bytes4);
+    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
 }
