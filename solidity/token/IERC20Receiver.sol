@@ -25,5 +25,20 @@ pragma solidity ^0.8.19;
  */
 
 interface IERC20Receiver {
+	/* Interface to add the ability for the external contract to handle the receive token event.
+	 * For this, the external contract must inheritance the IERC20Receiver interface and implement the function
+	 * function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+	 * In the body of this function, process the event and send back the magic ID of the interface.
+	 *
+	 * If the contract does not implement the IERC20Receiver interface, or if the event handling throws an exception
+	 * this function will be ignored and the transaction will continue.
+	 *
+	 * In order to roll back the entire transaction, the outer contract must return false
+	 * magic id.
+	 *
+	 * Valid magic ID: return bytes4(keccak256("onERC20Received(address,address,uint256)"));
+	 * Invalid magic ID: return bytes4(keccak256("anything_else"));
+	 */
+	
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
 }
