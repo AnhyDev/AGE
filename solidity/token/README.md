@@ -5,31 +5,14 @@
 
 
 - [BaseProxyVoting Smart Contract Documentation](#baseproxyvoting-smart-contract-documentation)
-  - [`getProxyAddress()`](#getproxyaddress---address)
-  - [`renounceOwnership()`](#renounceownership)
 
 - [OwnableManager Smart Contract Documentation](#ownablemanager-smart-contract-documentation)
-  - [`transferOwnership(address proposedOwner)`](#transferownershipaddress-proposedowner)
-  - [`voteForNewOwner(bool vote)`](#votefornewownerbool-vote)
-  - [`closeVoteForNewOwner()`](#closevotefornewowner)
-  - [`getActiveForVoteOwner() -> (bool, address)`](#getactiveforvoteowner---bool-address)
 
 - [TokenManager Smart Contract Documentation](#tokenmanager-smart-contract-documentation)
-  - [`initiateTransfer(address recepient, uint256 amount)`](#initiatetransferaddress-recepient-uint256-amount)
-  - [`voteForTransfer(bool vote)`](#votefortransferbool-vote)
-  - [`closeVoteForTransfer()`](#closevotefortransfer)
-  - [`getActiveForVoteTransfer() -> (address, uint256)`](#getactiveforvotetransfer---address-uint256)
 
 - [ProxyManager Smart Contract Documentation](#proxymanager-smart-contract-documentation)
-  - [`initiateNewProxy(address proposedNewProxy)`](#initiatenewproxyaddress-proposednewproxy)
-  - [`voteForNewProxy(bool vote)`](#votefornewproxybool-vote)
-  - [`closeVoteForNewProxy()`](#closevotefornewproxy)
-  - [`getActiveForVoteNewProxy() -> (bool, address)`](#getactiveforvotenewproxy---bool-address)
 
 - [FinanceManager Smart Contract Documentation](#financemanager-smart-contract-documentation)
-  - [`withdrawMoney(uint256 amount)`](#withdrawmoneyuint256-amount)
-  - [`withdrawERC20Tokens(address _tokenAddress, uint256 _amount)`](#withdrawerc20tokensaddress-_tokenaddress-uint256-_amount)
-  - [`withdrawERC721Token(address _tokenAddress, uint256 _tokenId)`](#withdrawerc721tokenaddress-_tokenaddress-uint256-_tokenid)
 
 - [Anhydrite Smart Contract Documentation](#anhydrite-smart-contract-documentation)
   - [Constants](#constants)
