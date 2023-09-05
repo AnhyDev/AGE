@@ -27,27 +27,29 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
  * with the software or the use or other dealings in the software.
  */
 
-abstract contract FinanceManager is ProxyManager {
 
-   /// @notice Function for transferring Ether
-    function withdrawMoney(uint256 amount) external onlyOwner {
-        address payable recipient = payable(_proxyContract.getImplementation());
-        require(address(this).balance >= amount, "Contract has insufficient balance");
-        recipient.transfer(amount);
-    }
+//Abstract contract for withdrawing coins, tokens and NFTs to a global smart contract address
+abstract contract FinanceManager is BaseProxyVoting {
 
-    /// @notice Function for transferring ERC20 tokens
-    function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
-        IERC20 token = IERC20(_tokenAddress);
-        require(token.balanceOf(address(this)) >= _amount, "Not enough tokens on contract balance");
-        token.transfer(_proxyContract.getImplementation(), _amount);
-    }
+// Function for transferring Ether
+ function withdrawMoney(uint256 amount) external onlyOwner {
+     address payable recipient = payable(_proxyContract.getImplementation());
+     require(address(this).balance >= amount, "Contract has insufficient balance");
+     recipient.transfer(amount);
+ }
 
-    /// @notice Function for transferring ERC721 tokens
-    function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
-        IERC721 token = IERC721(_tokenAddress);
-        require(token.ownerOf(_tokenId) == address(this), "The contract is not the owner of this token");
-        token.safeTransferFrom(address(this), _proxyContract.getImplementation(), _tokenId);
-    }
+ // Function for transferring ERC20 tokens
+ function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
+     IERC20 token = IERC20(_tokenAddress);
+     require(token.balanceOf(address(this)) >= _amount, "Not enough tokens on contract balance");
+     token.transfer(_proxyContract.getImplementation(), _amount);
+ }
+
+ // Function for transferring ERC721 tokens
+ function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
+     IERC721 token = IERC721(_tokenAddress);
+     require(token.ownerOf(_tokenId) == address(this), "The contract is not the owner of this token");
+     token.safeTransferFrom(address(this), _proxyContract.getImplementation(), _tokenId);
+ }
 
 }

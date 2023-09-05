@@ -30,8 +30,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
  * with the software or the use or other dealings in the software.
  */
 
-
-
 //Anhydrite smart contract implementation, ERC-20 standard with advanced features
 contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager, ERC20, ERC20Burnable {
  using ERC165Checker for address;
@@ -115,24 +113,6 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
      require(totalSupply() + amount <= MAX_SUPPLY, "Anhydrite: MAX_SUPPLY limit reached");
      super._mint(account, amount);
  }
-}
-
-interface IProxy {
- function getToken() external view returns (IERC20);
- function getImplementation() external view returns (address);
- function isStopped() external view returns (bool);
- function getTotalOwners() external view returns (uint256);
- function isProxyOwner(address tokenAddress) external view returns (bool);
- function isOwner(address account) external view returns (bool);
- function getBalanceOwner(address owner) external view returns (uint256);
- function getTokensNeededForOwnership() external view returns (uint256);
- function isBlacklisted(address account) external view returns (bool);
- function depositTokens(uint256 amount) external;
- function voluntarilyExit() external;
- function withdrawExcessTokens() external;
- function rescueTokens(address tokenAddress) external;
-
- event VoluntarilyExit(address indexed votingSubject, uint returTokens);
 }
 
 interface IERC20Receiver {

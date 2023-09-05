@@ -24,69 +24,77 @@ pragma solidity ^0.8.21;
  * with the software or the use or other dealings in the software.
  */
 
-abstract contract TokenManager is OwnableManager {
+//An abstract contract to vote on sending Anhydrite to the desired address
+abstract contract TokenManager is BaseProxyVoting {
 
-    address internal _proposedTransferRecepient;
-    uint256 internal _proposedTransferAmount;
-    VoteResult internal _votesForTransfer;
+ // Suggested recipient address
+ address internal _proposedTransferRecepient;
+ // Offered number of tokens to send
+ uint256 internal _proposedTransferAmount;
+ // Structure for counting votes
+ VoteResult internal _votesForTransfer;
 
-    event VotingForTransfer(address indexed voter, address recepient, uint256 amount, bool vote);
-    event VotingTransferCompleted(address indexed voter, address recepient, uint256 amount, bool vote, uint votesFor, uint votesAgainst);
+ // Event about the fact of voting, parameters: voter, recipient, amount, vote
+ event VotingForTransfer(address indexed voter, address recepient, uint256 amount, bool vote);
+ // Event about the fact of making a decision on voting, parameters: voter, recipient, amount, vote, votesFor, votesAgainst
+ event VotingTransferCompleted(address indexed voter, address recepient, uint256 amount, bool vote, uint votesFor, uint votesAgainst);
 
 
-    // Please provide the address of the new owner for the smart contract, override function
-    function initiateTransfer(address recepient, uint256 amount) public onlyProxyOwner(msg.sender) {
-        require(amount != 0, "TokenManager: Incorrect amount");
-        require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
-        if (address(_proxyContract) != address(0)) {
-            require(!_proxyContract.isBlacklisted(recepient), "TokenManager: this address is blacklisted");
-        }
+ // Voting start initiation, parameters: recipient, amount
+ function initiateTransfer(address recepient, uint256 amount) public onlyProxyOwner(msg.sender) {
+     require(amount != 0, "TokenManager: Incorrect amount");
+     require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
+     if (address(_proxyContract) != address(0)) {
+         require(!_proxyContract.isBlacklisted(recepient), "TokenManager: this address is blacklisted");
+     }
 
-        _proposedTransferRecepient = recepient;
-        _proposedTransferAmount = amount;
-        _votesForTransfer = VoteResult(new address[](0), new address[](0), block.timestamp);
-        _voteForTransfer(true);
-    }
+     _proposedTransferRecepient = recepient;
+     _proposedTransferAmount = amount;
+     _votesForTransfer = VoteResult(new address[](0), new address[](0), block.timestamp);
+     _voteForTransfer(true);
+ }
 
-    function voteForTransfer(bool vote) external onlyProxyOwner(msg.sender) {
-        _voteForTransfer(vote);
-    }
+ // Vote
+ function voteForTransfer(bool vote) external onlyProxyOwner(msg.sender) {
+     _voteForTransfer(vote);
+ }
 
-    // Voting for the address of the new owner of the smart contract 
-    function _voteForTransfer(bool vote) internal {
-        require(_proposedTransferAmount != 0, "TokenManager: There is no active voting on this issue");
-        require(!_hasOwnerVoted(_votesForTransfer, msg.sender), "VotingOwner: Already voted");
+ // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
+ function _voteForTransfer(bool vote) internal hasNotVoted(_votesForTransfer) {
+     require(_proposedTransferAmount != 0, "TokenManager: There is no active voting on this issue");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForTransfer, vote);
+     (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForTransfer, vote);
 
-        emit VotingForTransfer(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote);
+     emit VotingForTransfer(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
-            _transferFor(_proposedTransferRecepient, _proposedTransferAmount);
-            _resetVote(_votesForTransfer);
-            emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
-            _proposedTransferRecepient = address(0);
-            _proposedTransferAmount = 0;
-        } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForTransfer);
-            emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
-            _proposedTransferRecepient = address(0);
-            _proposedTransferAmount = 0;
-        }
-    }
+     if (votestrue * 100 >= _totalOwners * 60) {
+         _transferFor(_proposedTransferRecepient, _proposedTransferAmount);
+         _resetVote(_votesForTransfer);
+         emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
+         _proposedTransferRecepient = address(0);
+         _proposedTransferAmount = 0;
+     } else if (votesfalse * 100 > _totalOwners * 40) {
+         _resetVote(_votesForTransfer);
+         emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
+         _proposedTransferRecepient = address(0);
+         _proposedTransferAmount = 0;
+     }
+ }
 
-    function _transferFor(address recepient, uint256 amount) internal virtual;
+ // An abstract internal function for transferring tokens
+ function _transferFor(address recepient, uint256 amount) internal virtual;
 
-    function closeVoteForTransfer() public onlyOwner {
-        require(_proposedTransferRecepient != address(0), "There is no open vote");
-        _closeVote(_votesForTransfer);
-        _proposedTransferRecepient = address(0);
-            _proposedTransferAmount = 0;
-    }
+ // A function to close a vote on which a decision has not been made for three or more days
+ function closeVoteForTransfer() public onlyOwner {
+     require(_proposedTransferRecepient != address(0), "There is no open vote");
+     _closeVote(_votesForTransfer);
+     _proposedTransferRecepient = address(0);
+         _proposedTransferAmount = 0;
+ }
 
-    // Check if voting is enabled for new contract owner and their address.
-    function getActiveForVoteTransfer() external view returns (address, uint256) {
-        require(_proposedTransferRecepient != address(0), "VotingOwner: re is no active voting");
-        return (_proposedTransferRecepient, _proposedTransferAmount);
-    }
+ // A function for obtaining information about the status of voting
+ function getActiveForVoteTransfer() external view returns (address, uint256) {
+     require(_proposedTransferRecepient != address(0), "VotingOwner: re is no active voting");
+     return (_proposedTransferRecepient, _proposedTransferAmount);
+ }
 }

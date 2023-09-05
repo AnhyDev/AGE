@@ -24,62 +24,70 @@ pragma solidity ^0.8.21;
  * with the software or the use or other dealings in the software.
  */
 
-abstract contract ProxyManager is TokenManager {
+//Abstract contract to vote on smart contract proxy replacement
+abstract contract ProxyManager is BaseProxyVoting {
 
-    address internal _proposedProxy;
-    VoteResult internal _votesForNewProxy;
+ // A new smart contract proxy address is proposed
+ address internal _proposedProxy;
+ // Structure for counting votes
+ VoteResult internal _votesForNewProxy;
 
-    event VotingForNewProxy(address indexed voter, address proposedProxy, bool vote);
-    event VotingONewProxyCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
+ // Event about the fact of voting, parameters: voter, proposedProxy, vote
+ event VotingForNewProxy(address indexed voter, address proposedProxy, bool vote);
+ // Event about the fact of making a decision on voting, parameters: voter, proposedProxy, vote, votesFor, votesAgainst
+ event VotingONewProxyCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
 
 
-    // Please provide the address of the new owner for the smart contract, override function
-    function initiateNewProxy(address proposedNewProxy) public onlyProxyOwner(msg.sender) {
-        require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
+ // Voting start initiation, parameters: proposedNewProxy
+ function initiateNewProxy(address proposedNewProxy) public onlyProxyOwner(msg.sender) {
+     require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
+     require(_checkIProxyContract(proposedNewProxy), "ProxyManager: This address does not represent a contract that implements the IProxy interface.");
 
-        _proposedProxy = proposedNewProxy;
-        _votesForNewProxy = VoteResult(new address[](0), new address[](0), block.timestamp);
-        _voteForNewProxy(true);
-    }
+     _proposedProxy = proposedNewProxy;
+     _votesForNewProxy = VoteResult(new address[](0), new address[](0), block.timestamp);
+     _voteForNewProxy(true);
+ }
 
-    function voteForNewProxy(bool vote) external onlyProxyOwner(msg.sender) {
-        _voteForNewProxy(vote);
-    }
+ // Vote
+ function voteForNewProxy(bool vote) external onlyProxyOwner(msg.sender) {
+     _voteForNewProxy(vote);
+ }
 
-    // Voting for the address of the new owner of the smart contract 
-    function _voteForNewProxy(bool vote) internal {
-        require(_isActiveForVoteNewProxy(), "ProxyManager: there are no votes at this address");
-        require(!_hasOwnerVoted(_votesForNewProxy, msg.sender), "ProxyManager: Already voted");
+ // Votes must reach a 70% threshold to pass. If over 30% are downvotes, the measure fails.
+ function _voteForNewProxy(bool vote) internal hasNotVoted(_votesForNewProxy) {
+     require(_isActiveForVoteNewProxy(), "ProxyManager: there are no votes at this address");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewProxy, vote);
+     (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewProxy, vote);
 
-        emit VotingForNewProxy(msg.sender, _proposedProxy, vote);
+     emit VotingForNewProxy(msg.sender, _proposedProxy, vote);
 
-        if (votestrue * 100 >= _totalOwners * 70) {
-            _proxyContract = IProxy(_proposedProxy);
-            _resetVote(_votesForNewProxy);
-            emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
-            _proposedProxy = address(0);
-        } else if (votesfalse * 100 > _totalOwners * 30) {
-            _resetVote(_votesForNewProxy);
-            emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
-            _proposedProxy = address(0);
-        }
-    }
+     if (votestrue * 100 >= _totalOwners * 70) {
+         _proxyContract = IProxy(_proposedProxy);
+         _resetVote(_votesForNewProxy);
+         emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
+         _proposedProxy = address(0);
+     } else if (votesfalse * 100 > _totalOwners * 30) {
+         _resetVote(_votesForNewProxy);
+         emit VotingONewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
+         _proposedProxy = address(0);
+     }
+ }
 
-    function closeVoteForNewProxy() public onlyOwner {
-        require(_proposedProxy != address(0), "There is no open vote");
-        _closeVote(_votesForNewProxy);
-        _proposedProxy = address(0);
-    }
+ // A function to close a vote on which a decision has not been made for three or more days
+ function closeVoteForNewProxy() public onlyOwner {
+     require(_proposedProxy != address(0), "There is no open vote");
+     _closeVote(_votesForNewProxy);
+     _proposedProxy = address(0);
+ }
 
-    // Check if voting is enabled for new contract owner and their address.
-    function getActiveForVoteNewProxy() external view returns (bool, address) {
-        require(_isActiveForVoteNewProxy(), "OwnableManager: re is no active voting");
-        return (_isActiveForVoteNewProxy(), _proposedProxy);
-    }
+ // A function for obtaining information about the status of voting
+ function getActiveForVoteNewProxy() external view returns (address) {
+     require(_isActiveForVoteNewProxy(), "OwnableManager: re is no active voting");
+     return _proposedProxy;
+ }
 
-    function _isActiveForVoteNewProxy() internal view returns (bool) {
-        return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract);
-    }
+ // Function to check if the proposed address is valid
+ function _isActiveForVoteNewProxy() internal view returns (bool) {
+     return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract);
+ }
 }

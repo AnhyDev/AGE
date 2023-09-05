@@ -24,66 +24,73 @@ pragma solidity ^0.8.21;
  * with the software or the use or other dealings in the software.
  */
 
+//An abstract contract for voting on changing the owner of this smart contract
 abstract contract OwnableManager is BaseProxyVoting {
 
-    address internal _proposedOwner;
-    VoteResult internal _votesForNewOwner;
+ // Proposed new owner
+ address internal _proposedOwner;
+ // Structure for counting votes
+ VoteResult internal _votesForNewOwner;
 
-    event VotingForOwner(address indexed voter, address votingSubject, bool vote);
-    event VotingOwnerCompleted(address indexed voter, address votingSubject, bool vote, uint votesFor, uint votesAgainst);
+ // Event about the fact of voting, parameters: voter, proposedOwner, vote
+ event VotingForOwner(address indexed voter, address proposedOwner, bool vote);
+ // Event about the fact of making a decision on voting, parameters: voter, proposedOwner, vote, votesFor, votesAgainst
+ event VotingOwnerCompleted(address indexed voter, address proposedOwner, bool vote, uint votesFor, uint votesAgainst);
 
 
-    // Please provide the address of the new owner for the smart contract, override function
-    function transferOwnership(address proposedOwner) public override onlyProxyOwner(msg.sender) {
-        require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
-        if (address(_proxyContract) != address(0)) {
-            require(!_proxyContract.isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
-            require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
-        }
+ // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
+ function transferOwnership(address proposedOwner) public override virtual onlyProxyOwner(msg.sender) {
+     require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
+     if (address(_proxyContract) != address(0)) {
+         require(!_proxyContract.isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
+         require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
+     }
 
-        _proposedOwner = proposedOwner;
-        _votesForNewOwner = VoteResult(new address[](0), new address[](0), block.timestamp);
-        _voteForNewOwner(true);
-    }
+     _proposedOwner = proposedOwner;
+     _votesForNewOwner = VoteResult(new address[](0), new address[](0), block.timestamp);
+     _voteForNewOwner(true);
+ }
 
-    function voteForNewOwner(bool vote) external onlyProxyOwner(_proposedOwner) {
-        _voteForNewOwner(vote);
-    }
+ // Vote For New Owner
+ function voteForNewOwner(bool vote) external onlyProxyOwner(msg.sender) {
+     _voteForNewOwner(vote);
+ }
 
-    // Voting for the address of the new owner of the smart contract 
-    function _voteForNewOwner(bool vote) internal onlyProxyOwner(msg.sender) {
-        require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
-        require(!_hasOwnerVoted(_votesForNewOwner, msg.sender), "OwnableManager: Already voted");
+ // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
+ function _voteForNewOwner(bool vote) internal hasNotVoted(_votesForNewOwner) {
+     require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
+     (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
 
-        emit VotingForOwner(msg.sender, _proposedOwner, vote);
+     emit VotingForOwner(msg.sender, _proposedOwner, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
-            _transferOwnership(_proposedOwner);
-            _resetVote(_votesForNewOwner);
-            emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForNewOwner);
-            emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
-        }
-    }
+     if (votestrue * 100 >= _totalOwners * 60) {
+         _transferOwnership(_proposedOwner);
+         _resetVote(_votesForNewOwner);
+         emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+         _proposedOwner = address(0);
+     } else if (votesfalse * 100 > _totalOwners * 40) {
+         _resetVote(_votesForNewOwner);
+         emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+         _proposedOwner = address(0);
+     }
+ }
 
-    function closeVoteForNewOwner() public onlyOwner {
-        require(_proposedOwner != address(0), "There is no open vote");
-        _closeVote(_votesForNewOwner);
-        _proposedOwner = address(0);
-    }
+ // A function to close a vote on which a decision has not been made for three or more days
+ function closeVoteForNewOwner() public onlyOwner {
+     require(_proposedOwner != address(0), "There is no open vote");
+     _closeVote(_votesForNewOwner);
+     _proposedOwner = address(0);
+ }
 
-    // Check if voting is enabled for new contract owner and their address.
-    function getActiveForVoteOwner() external view returns (bool, address) {
-        require(_isActiveForVoteOwner(), "OwnableManager: re is no active voting");
-        return (_isActiveForVoteOwner(), _proposedOwner);
-    }
+ // Check if voting is enabled for new contract owner and their address.
+ function getActiveForVoteOwner() external view returns (address) {
+     require(_isActiveForVoteOwner(), "OwnableManager: re is no active voting");
+     return _proposedOwner;
+ }
 
-    function _isActiveForVoteOwner() internal view returns (bool) {
-        return _proposedOwner != address(0) && _proposedOwner !=  owner();
-    }
+ // Function to check if the proposed Owner address is valid
+ function _isActiveForVoteOwner() internal view returns (bool) {
+     return _proposedOwner != address(0) && _proposedOwner !=  owner();
+ }
 }

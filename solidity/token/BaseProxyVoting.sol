@@ -27,76 +27,125 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 
 
+//A basic abstract contract containing public modifiers and private functions,
+//emulates Ownable from Openzeppelin
 abstract contract BaseProxyVoting is Ownable {
-    
-    IProxy internal _proxyContract;
+ 
+ // Proxy contract interface
+ IProxy internal _proxyContract;
 
-    struct VoteResult {
-        address[] isTrue;
-        address[] isFalse;
-        uint256 timestamp;
-    }
+ // Returns the interface address of the proxy contract
+ function getProxyAddress() public view returns (address) {
+     return address(_proxyContract);
+ }
 
-    function _isProxyOwner(address senderAddress) internal view returns (bool) {
-        return _proxyContract.isProxyOwner(senderAddress);
-    }
+ // Checks whether the address is among the owners of the proxy contract
+ function _isProxyOwner(address senderAddress) internal view returns (bool) {
+     return _proxyContract.isProxyOwner(senderAddress);
+ }
 
-    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
-    modifier onlyProxyOwner(address senderAddress) {
-        if (address(_proxyContract) != address(0)) {
-            require(_isProxyOwner(senderAddress), "ProxyOwner: caller is not the proxy owner");
-        } else {
-            require(senderAddress == owner(), "ProxyOwner: caller is not the owner");
-        }
-        _;
-    }
+ // Voting structure
+ struct VoteResult {
+     address[] isTrue;
+     address[] isFalse;
+     uint256 timestamp;
+ }
 
-    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
-        uint256 _totalOwners = 1;
-        if (address(_proxyContract) != address(0)) {
-            _totalOwners = _proxyContract.getTotalOwners();
-        } 
-        if (vote) {
-            result.isTrue.push(msg.sender);
-        } else {
-            result.isFalse.push(msg.sender);
-        }
-        return (result.isTrue.length, result.isFalse.length, _totalOwners);
-    }
-    
-    function _hasOwnerVoted(VoteResult memory result, address targetAddress) internal pure returns (bool) {
-        for (uint256 i = 0; i < result.isTrue.length; i++) {
-            if (result.isTrue[i] == targetAddress) {
-                return true;
-            }
-        }
-        for (uint256 i = 0; i < result.isFalse.length; i++) {
-            if (result.isFalse[i] == targetAddress) {
-                return true;
-            }
-        }
-        return false;
-    }
+ // Adds the voter's address to the corresponding list and also returns the total number of votes, upvotes and downvotes
+ function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
+     uint256 _totalOwners = 1;
+     if (address(_proxyContract) != address(0)) {
+         _totalOwners = _proxyContract.getTotalOwners();
+     } 
+     if (vote) {
+         result.isTrue.push(msg.sender);
+     } else {
+         result.isFalse.push(msg.sender);
+     }
+     return (result.isTrue.length, result.isFalse.length, _totalOwners);
+ }
 
-    function _resetVote(VoteResult storage vote) internal {
-        vote.isTrue = new address[](0);
-        vote.isFalse = new address[](0);
-        vote.timestamp = 0;
-    }
+ // Clears structure after voting
+ function _resetVote(VoteResult storage vote) internal {
+     vote.isTrue = new address[](0);
+     vote.isFalse = new address[](0);
+     vote.timestamp = 0;
+ }
 
-    // Modifier for checking whether 3 days have passed since the start of voting and whether it can be closed
-    modifier canClose(uint256 timestamp) {
-        require(block.timestamp >= timestamp + 3 days, "Owners: Voting is still open");
-        _;
-    }
+ // Calls the poll structure cleanup function if 3 or more days have passed since it started
+ function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
+     _resetVote(vote);
+ }
 
-    function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
-        _resetVote(vote);
-    }
+ // Checks whether the address is a contract that implements the IProxy interface
+ function _checkIProxyContract(address contractAddress) internal view returns (bool) {
 
-    // This override function and is deactivated
-    function renounceOwnership() public view override onlyOwner {
-        revert("ProxyOwner: this function is deactivated");
-    }
+     if (Address.isContract(contractAddress)) {
+         IERC165 targetContract = IERC165(contractAddress);
+         return targetContract.supportsInterface(type(IProxy).interfaceId);
+     }
 
+     return false;
+ }
+ 
+ // Checks whether the address has voted
+ function _hasOwnerVoted(VoteResult memory result, address targetAddress) internal pure returns (bool) {
+     for (uint256 i = 0; i < result.isTrue.length; i++) {
+         if (result.isTrue[i] == targetAddress) {
+             return true;
+         }
+     }
+     for (uint256 i = 0; i < result.isFalse.length; i++) {
+         if (result.isFalse[i] == targetAddress) {
+             return true;
+         }
+     }
+     return false;
+ }
+
+ // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
+ modifier onlyProxyOwner(address senderAddress) {
+     if (address(_proxyContract) != address(0)) {
+         require(_isProxyOwner(senderAddress), "ProxyOwner: caller is not the proxy owner");
+     } else {
+         require(senderAddress == owner(), "ProxyOwner: caller is not the owner");
+     }
+     _;
+ }
+
+ // Modifier for checking whether 3 days have passed since the start of voting and whether it can be closed
+ modifier canClose(uint256 timestamp) {
+     require(block.timestamp >= timestamp + 3 days, "Owners: Voting is still open");
+     _;
+ }
+
+ // A modifier that returns true if the given address has not yet been voted
+ modifier hasNotVoted(VoteResult memory result) {
+     require(!_hasOwnerVoted(result, msg.sender), "Owners: Already voted");
+     _;
+ }
+
+ // This override function and is deactivated
+ function renounceOwnership() public view override onlyOwner {
+     revert("ProxyOwner: this function is deactivated");
+ }
+}
+
+
+interface IProxy {
+ function getToken() external view returns (IERC20);
+ function getImplementation() external view returns (address);
+ function isStopped() external view returns (bool);
+ function getTotalOwners() external view returns (uint256);
+ function isProxyOwner(address tokenAddress) external view returns (bool);
+ function isOwner(address account) external view returns (bool);
+ function getBalanceOwner(address owner) external view returns (uint256);
+ function getTokensNeededForOwnership() external view returns (uint256);
+ function isBlacklisted(address account) external view returns (bool);
+ function depositTokens(uint256 amount) external;
+ function voluntarilyExit() external;
+ function withdrawExcessTokens() external;
+ function rescueTokens(address tokenAddress) external;
+
+ event VoluntarilyExit(address indexed votingSubject, uint returTokens);
 }
