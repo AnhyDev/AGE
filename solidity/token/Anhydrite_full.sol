@@ -33,7 +33,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 // A basic abstract contract containing public modifiers and private functions,
 // emulates Ownable from Openzeppelin
-abstract contract BaseProxyVoting is Ownable {
+abstract contract UtilityVotingAndOwnable is Ownable {
     
     // Proxy contract interface
     IProxy internal _proxyContract;
@@ -134,9 +134,21 @@ abstract contract BaseProxyVoting is Ownable {
         revert("ProxyOwner: this function is deactivated");
     }
 }
+interface IProxy {
+    function getToken() external view returns (IERC20);
+    function getImplementation() external view returns (address);
+    function getTokensNeededForOwnership() external view returns (uint256);
+    function getTotalOwners() external view returns (uint256);
+    function isProxyOwner(address tokenAddress) external view returns (bool);
+    function isOwner(address account) external view returns (bool);
+    function getBalanceOwner(address owner) external view returns (uint256);
+    function isBlacklisted(address account) external view returns (bool);
+    function isStopped() external view returns (bool);
+}
+
 
 // Abstract contract for withdrawing coins, tokens and NFTs to a global smart contract address
-abstract contract FinanceManager is BaseProxyVoting {
+abstract contract FinanceManager is UtilityVotingAndOwnable {
 
    // Function for transferring Ether
     function withdrawMoney(uint256 amount) external onlyOwner {
@@ -162,7 +174,7 @@ abstract contract FinanceManager is BaseProxyVoting {
 }
 
 // An abstract contract to vote on sending Anhydrite to the desired address
-abstract contract TokenManager is BaseProxyVoting {
+abstract contract TokenManager is UtilityVotingAndOwnable {
 
     // Suggested recipient address
     address internal _proposedTransferRecepient;
@@ -237,7 +249,7 @@ abstract contract TokenManager is BaseProxyVoting {
 }
 
 // Abstract contract to vote on smart contract proxy replacement
-abstract contract ProxyManager is BaseProxyVoting {
+abstract contract ProxyManager is UtilityVotingAndOwnable {
 
     // A new smart contract proxy address is proposed
     address internal _proposedProxy;
@@ -305,7 +317,7 @@ abstract contract ProxyManager is BaseProxyVoting {
 }
 
 // An abstract contract for voting on changing the owner of this smart contract
-abstract contract OwnableManager is BaseProxyVoting {
+abstract contract OwnableManager is UtilityVotingAndOwnable {
 
     // Proposed new owner
     address internal _proposedOwner;
@@ -375,20 +387,28 @@ abstract contract OwnableManager is BaseProxyVoting {
     }
 }
 
+// An IERC20Receiver interface for tracking the receipt of Anhydrite tokens by a smart contract
+interface IERC20Receiver {
+    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+}
+
 // Anhydrite smart contract implementation, ERC-20 standard with advanced features
-contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager, ERC20, ERC20Burnable {
+contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager, ERC20, ERC20Burnable, IERC20Receiver {
     using ERC165Checker for address;
 
     // Sets the maximum allowed supply of tokens is 360 million
     uint256 private constant MAX_SUPPLY = 360000000 * 10 ** 18;
     // The magic identifier for the ability in the external contract to cancel the token acquisition transaction
-    bytes4 constant ERC20ReceivedMagic = bytes4(keccak256("onERC20Received(address,address,uint256)"));
+    bytes4 private ERC20ReceivedMagic;
 
     // Confirm receipt and handling of Anhydrite tokens by external IERC20Receiver contract
     event AnhydriteTokensReceivedProcessed(address indexed from, address indexed who, address indexed receiver, uint256 amount);
+    // An event to log the return of Anhydrite tokens to this smart contract
+    event ReturnOfAnhydrite(address indexed from, address indexed who, uint256 amount);
 
     constructor() ERC20("Anhydrite", "ANH") {
         _mint(address(this), 70000000 * 10 ** decimals());
+        ERC20ReceivedMagic = IERC20Receiver(address(this)).onERC20Received.selector;
     }
 
     // Returns the maximum token supply allowed
@@ -418,18 +438,28 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
     }
 
     /* Private function to add the ability for the external contract to handle the receive token event.
-     * For this, the external contract must inheritance the IERC20Receiver interface and implement the function
+     * For this, the external contract must inherit from the IERC20Receiver interface, and implement the function
      * function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
      * In the body of this function, process the event and send back the magic ID of the interface.
      *
      * If the contract does not implement the IERC20Receiver interface, or if the event handling throws an exception
      * this function will be ignored and the transaction will continue.
      *
-     * In order to roll back the entire transaction, the outer contract must return false
-     * magic id.
+     * In order to roll back the entire transaction, the outer contract must return false id.
      *
-     * Valid magic ID: return bytes4(keccak256("onERC20Received(address,address,uint256)"));
-     * Invalid magic ID: return bytes4(keccak256("anything_else"));
+     * An example for an external contract implementing IERC20Receiver:
+
+    function onERC20Received(address, address, uint256) external pure override returns (bytes4) {
+        // Here you can process the obtained result and in case the conditions are not met,
+        // return a fake id like:
+        bool result = msg.sender == address(ANHYDRITE); // Your condition
+        if (result) {
+           // Your logic
+        } else {
+           return bytes4(keccak256("anything_else"));
+        }
+        return this.onERC20Received.selector;
+    }
      */
     function _onERC20Received(address _from, address _to, uint256 _amount) private {
         if (Address.isContract(_to)) {
@@ -458,26 +488,10 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
         require(totalSupply() + amount <= MAX_SUPPLY, "Anhydrite: MAX_SUPPLY limit reached");
         super._mint(account, amount);
     }
-}
 
-interface IProxy {
-    function getToken() external view returns (IERC20);
-    function getImplementation() external view returns (address);
-    function isStopped() external view returns (bool);
-    function getTotalOwners() external view returns (uint256);
-    function isProxyOwner(address tokenAddress) external view returns (bool);
-    function isOwner(address account) external view returns (bool);
-    function getBalanceOwner(address owner) external view returns (uint256);
-    function getTokensNeededForOwnership() external view returns (uint256);
-    function isBlacklisted(address account) external view returns (bool);
-    function depositTokens(uint256 amount) external;
-    function voluntarilyExit() external;
-    function withdrawExcessTokens() external;
-    function rescueTokens(address tokenAddress) external;
-
-    event VoluntarilyExit(address indexed votingSubject, uint returTokens);
-}
-
-interface IERC20Receiver {
-    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+    // Overriding the onERC20Received function
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        emit ReturnOfAnhydrite(_from, _who, _amount);
+        return this.onERC20Received.selector;
+    }
 }
