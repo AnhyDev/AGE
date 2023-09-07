@@ -13,7 +13,26 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-/// @custom:security-contact support@anh.ink
+
+abstract contract ControlExecution {
+
+    mapping(address => uint256) internal  _executes;
+
+    function _startExecute() internal {
+        require(_executes[msg.sender] == 0, "ControlExecution: Wait for the previous call to end");
+        _executes[msg.sender] = 1;
+    }
+
+    function _finishExecute() internal {
+        _executes[msg.sender] = 0;
+    }
+
+    modifier isExecutes() {
+        _startExecute();
+        _;
+        _finishExecute();
+    }
+}
 
 /*
 * GameServerMetadata is a smart contract that converts the elements of the GameServers enum to the name
@@ -138,7 +157,7 @@ interface IVotingOwner {
     event VotingOwnerCompleted(address indexed voter, address votingSubject, bool vote, uint votesFor, uint votesAgainst);
 }
 
-abstract contract VotingOwner is IVotingOwner, Ownable {
+abstract contract VotingOwner is IVotingOwner, Ownable, ControlExecution {
     
     IProxy internal immutable _proxyContract;
 
@@ -171,7 +190,7 @@ abstract contract VotingOwner is IVotingOwner, Ownable {
     }
 
     // Voting for the address of the new owner of the smart contract
-    function _voteForNewOwner(bool vote) internal {
+    function _voteForNewOwner(bool vote) internal isExecutes {
         require(_isActiveForVoteOwner(), "VotingOwner: there are no votes at this address");
 
         if (vote) {
@@ -360,17 +379,16 @@ abstract contract Monitorings is VotingOwner, IMonitorings {
 
     // Vote on monitoring for the address
     function voteForServer(address serverAddress) external override {
-        _voteForServer(msg.sender, serverAddress);
+        _voteForServer(serverAddress);
     }
 
-    function _voteForServer(address voterAddress, address serverAddress) internal {
+    function _voteForServer(address serverAddress) internal {
         (, address monitoringAddress) = _getMonitoring();
-        require(voterAddress != address(0), "Invalid voter address");
         require(monitoringAddress != address(0), "Invalid monitoring address");
         require(_isServerMonitored(serverAddress), "This address is not monitored.");
         require(!_isServerBlocked(serverAddress), "This address is not blocked.");
 
-        IAnhydriteMonitoring(monitoringAddress).voteForServer(voterAddress, serverAddress);
+        IAnhydriteMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress);
     }
 
     function _getMonitoring() internal view returns (uint256, address) {
@@ -629,12 +647,10 @@ interface IAnhydriteGlobal {
     function getPrice(string memory name) external view returns (uint256);
     function getServerFromTokenId(uint256 tokenId) external view returns (address);
     function getTokenIdFromServer(address serverAddress) external view returns (uint256);
-    function setTokenURI(uint256 tokenId, string memory newURI) external;
-    function gerTokens(address to, uint256 amount) external returns (bool);
 }
 
 // 
-contract AnhydriteGlobal is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Burnable, Finances, IAnhydriteGlobal {
+contract AnhydriteGamingEcosystem is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Burnable, Finances, IAnhydriteGlobal {
     using Counters for Counters.Counter;
 
     uint256 constant private _version = 0;
@@ -643,7 +659,7 @@ contract AnhydriteGlobal is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Bu
     mapping(address => uint256) private _contractToken;
     mapping(string => uint256) private _prices;
 
-    constructor(address proxyAddress) ERC721("Anhydrite Global", "ANHG") VotingOwner(proxyAddress) {
+    constructor(address proxyAddress) ERC721("Anhydrite Gaming Ecosystem", "AGE") VotingOwner(proxyAddress) {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(msg.sender, tokenId);
@@ -677,27 +693,6 @@ contract AnhydriteGlobal is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Bu
         return _contractToken[serverAddress];
     }
 
-    // Owner can change tokenURI of his own token
-    function setTokenURI(uint256 tokenId, string memory newURI) public override onlyTokenOwner(tokenId) {
-        _setTokenURI(tokenId, newURI);
-    }
-
-    function gerTokens(address recepient, uint256 amount) public override returns (bool) {
-        require(address(_proxyContract) == msg.sender, "AnhydriteGlobal: unauthorized call");
-        require(_isProxyOwner(recepient), "AnhydriteGlobal: recepient has no right to receive tokens");
-        return _gerTokens(recepient, amount);
-    }
-
-    function _gerTokens(address to, uint256 amount) private returns (bool) {
-        IERC20 token = _proxyContract.getToken();
-        ANH_ERC20 anhydrite = ANH_ERC20(address(token));
-        uint256 amountToSend = amount / (10 ** 18);
-        if (token.balanceOf(address(this)) < amount) {
-            anhydrite.xContract(amountToSend);
-        }
-        return token.transfer(to, amount);
-    }
-
     // During the deployment of the server smart contract, a new token is minted and sent to the address of this contract
     function _mintTokenForServer(address serverAddress) internal override {
         require(_contractToken[serverAddress] == 0, "This contract has already used safeMint");
@@ -725,7 +720,7 @@ contract AnhydriteGlobal is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Bu
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        return interfaceId == type(IAnhydriteGlobal).interfaceId || super.supportsInterface(interfaceId);
     }
 
     modifier onlyTokenOwner(uint256 tokenId) {

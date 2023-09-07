@@ -402,7 +402,7 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
     bytes4 private ERC20ReceivedMagic;
 
     // Confirm receipt and handling of Anhydrite tokens by external IERC20Receiver contract
-    event AnhydriteTokensReceivedProcessed(address indexed from, address indexed who, address indexed receiver, uint256 amount);
+    event AnhydriteTokensReceivedProcessed(address indexed from, address indexed who, address indexed receiver, uint256 amount, bool processed);
     // An event to log the return of Anhydrite tokens to this smart contract
     event ReturnOfAnhydrite(address indexed from, address indexed who, uint256 amount);
 
@@ -419,7 +419,7 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
     // Sending tokens on request from the smart contract proxy to its address
     function transferForProxy(uint256 amount) public {
         address proxy = address(_proxyContract);
-        require(_msgSender() == proxy, "Anhydrite: Only a proxy smart contract can activate this feature");
+        require(msg.sender == proxy, "Anhydrite: Only a proxy smart contract can activate this feature");
         _transferFor(proxy, amount);
     }
 
@@ -463,23 +463,25 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
      */
     function _onERC20Received(address _from, address _to, uint256 _amount) private {
         if (Address.isContract(_to)) {
-            bytes memory data = abi.encodeWithSelector(ERC20ReceivedMagic, _from, _msgSender(), _amount);
+            bytes memory data = abi.encodeWithSelector(ERC20ReceivedMagic, _from, msg.sender, _amount);
 
             (bool success, bytes memory returnData) = _to.call(data);
 
             if (success && returnData.length > 0) {
                 bytes4 retval = abi.decode(returnData, (bytes4));
                 require(retval == ERC20ReceivedMagic, "Anhydrite: An invalid magic ID was returned");
-                emit AnhydriteTokensReceivedProcessed(_from, _msgSender(), _to, _amount);
+                emit AnhydriteTokensReceivedProcessed(_from, msg.sender, _to, _amount, true);
+                return;
             }
+            emit AnhydriteTokensReceivedProcessed(_from, msg.sender, _to, _amount, false);
         }
     }
 
     // Redefined function _afterTokenTransfer, to which the execution of the function _onERC20Received was added,
     // if the sender and receiver of the tokens are not a address(0)
     function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
-        if(from != address(0) && to != address(0)) {
-        _onERC20Received(from, to, amount);
+        if(to != address(0)) {
+            _onERC20Received(from, to, amount);
         }
     }
 
@@ -491,7 +493,10 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
 
     // Overriding the onERC20Received function
     function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
-        emit ReturnOfAnhydrite(_from, _who, _amount);
-        return this.onERC20Received.selector;
+        if (msg.sender == address(this)) {
+            emit ReturnOfAnhydrite(_from, _who, _amount);
+            return this.onERC20Received.selector;
+        }
+        return bytes4(keccak256("anything_else"));
     }
 }
