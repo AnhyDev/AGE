@@ -1,0 +1,632 @@
+# Anhydrite Proxy Owners Smart Contract Documentation
+
+## Overview
+
+The Anhydrite Proxy Owners smart contract is designed to manage ownership, voting, and token interaction within the Anhydrite Gaming Ecosystem. This contract is part of a larger system and operates on the Binance Smart Chain. It primarily focuses on implementing a system for managing owners, allowing voluntary exit of an owner, transferring the native Anhydrite (ANH) tokens, and rescuing accidentally sent tokens. The contract also incorporates multiple voting mechanisms related to governance.
+
+## Components
+
+The contract is built by extending multiple contracts and interfaces:
+- [**Proxy**: Manages the current logic implementation address for upgradeable contracts.](#proxy)
+- [**VotingStopped**: Mechanism to stop all voting.](#votingstopped)
+- [**VotingNeededForOwnership**: Voting logic for becoming an owner.](#votingneededforownership)
+- [**VotingNewImplementation**: Voting logic for changing the logic implementation of the Proxy.](#votingnewimplementation)
+- [**VotingNewOwner**: Voting logic for adding a new owner.](#votingnewowner)
+- [**VotingRemoveOwner**: Voting logic for removing an existing owner.](#votingremoveowner)
+- [**IERC20Receiver**: Interface for contracts capable of receiving ERC20 tokens.](#ierc20receiver)
+
+## Functionalities
+
+### Initialization
+
+The constructor sets the initial implementation address to zero, designates the contract creator as the first owner, and sets the number of tokens needed for ownership to `100000 * 10 ** 18`.
+
+### Voluntary Exit (`voluntarilyExit`)
+
+Owners can voluntarily exit from their position. On exiting, if the owner has any Anhydrite tokens deposited, those tokens will be returned. The function will also emit an `VoluntarilyExit` event. If there are no remaining owners, the remaining balance of Anhydrite tokens will be sent back to the ANHYDRITE contract.
+
+### Withdraw Excess Tokens (`withdrawExcessTokens`)
+
+Owners can withdraw excess tokens from their deposit. Excess tokens are the tokens that exceed the minimum required for ownership. 
+
+### Internal Token Transfer (`_transferTokens`)
+
+A helper function for handling the internal mechanics of transferring tokens. It takes care of the transfer process and ensures that the balances are updated accordingly.
+
+### Rescue Tokens (`rescueTokens`)
+
+This function enables an owner to rescue any ERC20 tokens that are accidentally sent to the contract. However, it does not allow the rescue of Anhydrite tokens (native token).
+
+### Receiving Tokens (`onERC20Received`)
+
+Implements the `IERC20Receiver` interface and handles received ERC20 tokens. If the sender is the Anhydrite token contract and the receiver is an owner, the owner's balance will be updated.
+
+## Events
+
+- **VoluntarilyExit**: Emitted when an owner voluntarily exits. Provides the address of the exiting owner and the number of tokens returned.
+- **DepositAnhydrite**: Emitted when Anhydrite tokens are deposited. Provides the sender and receiver addresses and the amount of tokens.
+
+## Limitations and Risks
+
+The contract is provided as-is, without any warranties. Use it at your own risk.
+
+## Contact
+
+For detailed terms and more information, please contact the Anhydrite Gaming Ecosystem team at their official website [https://anh.ink](https://anh.ink).
+
+## License
+
+MIT License. See the source code for detailed licensing information.
+***
+
+<br>
+<br>
+
+# BaseUtilityAndOwnable
+
+## Overview
+
+The `BaseUtilityAndOwnable` abstract contract provides the core functionalities related to utility and ownership within a given ecosystem. It extends the `IERC721Receiver` interface for receiving NFTs and is highly adaptable to various needs such as managing ownership, voting, and token interactions.
+
+## Contract Components
+
+### Global Variables
+
+- `ANHYDRITE`: Address of the main project token (ANH).
+- `_implementAGE`: Address of the global contract (AGE).
+- `_tokensNeededForOwnership`: Tokens required to obtain ownership rights.
+- Various mappings and variables for managing ownership and votes.
+
+### Structs
+
+- `VoteResult`: A struct to store the result of a vote with vote counts and timestamp.
+
+### Modifiers
+
+- `canClose`: Checks if 3 days have passed since the vote start.
+- `hasNotVoted`: Ensures the owner has not already voted.
+- `onlyOwner`: Allows only current owners to execute the function.
+
+## Functionalities
+
+### `_implementation()`
+
+Returns the current global contract (AGE) address.
+
+### `_votes(VoteResult storage, bool)`
+
+Adds an owner's vote to either the `isTrue` or `isFalse` array in the `VoteResult` struct and returns the lengths of both arrays.
+
+### `_getVote(VoteResult, address)`
+
+Returns details about the voting, including the address initiating the vote, number of true/false votes, and timestamp.
+
+### `_resetVote(VoteResult storage)`
+
+Resets the `VoteResult` struct, clearing all votes and the timestamp.
+
+### `_closeVote(VoteResult storage)`
+
+Closes the vote if 3 days have passed since the vote's initiation and resets the `VoteResult` struct.
+
+### `_increaseByPercent(address)`
+
+Increases the interest (token balance) of a specific owner by a percentage.
+
+### `_increaseByPercent(address[], address[])`
+
+Increases the interest for all the owners in the provided address arrays.
+
+### `_hasOwnerVoted(VoteResult, address)`
+
+Checks if an owner has already voted.
+
+### `_isProxyOwner(address)`
+
+Validates an owner's voting rights based on conditions such as ownership status and token balance.
+
+### `onERC721Received(address, address, uint256, bytes)`
+
+Handles received NFTs, ensuring that the sender supports the ERC-721 interface and forwarding the NFTs to the `_implementation()` address.
+
+### `_checkContract(address)`
+
+Checks if a contract implements a specific `IAGE` interface.
+
+## Limitations and Risks
+
+- The contract is abstract and should be extended for specific functionalities.
+- Voting mechanics may be susceptible to manipulation if proper security measures are not implemented.
+
+## Contact Information
+
+For further queries and support, consult the development team.
+
+
+***
+
+<br>
+<br>
+
+# VotingStopped
+
+## Overview
+
+The `VotingStopped` contract is an abstract contract that extends `BaseUtilityAndOwnable`. This contract is specifically designed for initiating, managing, and finalizing votes to stop or resume services within a given ecosystem.
+
+## Contract Events
+
+- `VotingForStopped`: Emitted when an owner votes for stopping/resuming services.
+- `VotingCompletedForStopped`: Emitted when the vote is completed with a decisive outcome.
+- `CloseVoteForStopped`: Emitted when the voting period has expired and the vote is manually closed.
+
+## Functionalities
+
+### `initiateVotingForStopped(bool _proposed)`
+
+- Initiates a vote for stopping or resuming services.
+- Only an owner can call this function.
+- Requires that the proposed state is different from the current state and no other similar vote is active.
+- Sets the `_proposedStopped` flag and the timestamp for the vote.
+
+### `voteForStopped(bool vote)`
+
+- Allows an owner to vote for stopping or resuming services.
+- Calls the internal function `_voteForStopped`.
+
+### `_voteForStopped(bool vote)`
+
+- Handles the logic for the voting mechanism.
+- Updates vote counts in the `_votesForStopped` struct.
+- Emits the `VotingForStopped` event.
+- Checks if a decisive outcome is reached to either stop or resume services, then emits `VotingCompletedForStopped` event.
+
+### `closeVoteForStopped()`
+
+- Manually closes the vote if the voting period is expired.
+- Resets `_votesForStopped` and sets `_proposedStopped` to `_stopped`.
+- Emits `CloseVoteForStopped` event.
+
+### `getVoteForStopped()`
+
+- Returns the current status of the vote including:
+  - Whether a vote is currently active (`_proposedStopped != _stopped`).
+  - The number of votes for and against the proposal.
+  - The timestamp when the vote was initiated.
+
+## Constraints
+
+- The contract is abstract and needs to be extended for specific functionalities.
+- Only owners can initiate, vote, and close votes.
+  
+## Risk Factors
+
+- The contract does not prevent double voting within a single transaction.
+- Voting mechanism may be susceptible to manipulation if not properly secured.
+
+## Usage Scenario
+
+Ideal for decentralized platforms where the decision to stop or resume services should be made collectively by multiple owners.
+
+## Contact Information
+
+For further queries and support, consult the development team.
+
+
+***
+
+<br>
+<br>
+
+# VotingNeededForOwnership
+
+## Overview
+
+The `VotingNeededForOwnership` contract is an abstract extension of `BaseUtilityAndOwnable`. This contract is designed to initiate, manage, and finalize voting rounds aimed at changing the required token count needed for ownership rights.
+
+## Contract Events
+
+- `VotingForTokensNeeded`: Emitted when an owner casts their vote.
+- `VotingCompletedForTokensNeeded`: Emitted when a decisive outcome has been reached in a voting round.
+- `CloseVoteForTokensNeeded`: Emitted when a voting round is manually closed.
+
+## Functionalities
+
+### `initiateVotingForNeededForOwnership(uint256 _proposed)`
+
+- Initiates a voting round for setting a new required token count for ownership rights.
+- Access restricted to contract owners.
+- Pre-requisites:
+  - Proposed token count must be greater than zero.
+  - Proposed token count must differ from the current token count.
+  - No active voting on the same issue should be occurring.
+- Sets `_proposedTokensNeeded` and marks the timestamp.
+
+### `voteForNeededForOwnership(bool vote)`
+
+- Allows an owner to cast their vote.
+- Invokes `_voteForNeededForOwnership` internally to handle voting logic.
+
+### `_voteForNeededForOwnership(bool vote)`
+
+- Internal function that handles vote counting and resolution.
+- Conditions:
+  - Voting round must be active (`_proposedTokensNeeded != 0`).
+- Emits `VotingForTokensNeeded` upon a cast vote.
+- Checks whether a decisive majority is reached:
+  - If yes, updates `_tokensNeededForOwnership` and resets the vote.
+  - If no, resets the vote without making changes.
+  
+### `closeVoteForTokensNeeded()`
+
+- Allows an owner to manually close the voting round.
+- Preconditions:
+  - Voting must be active (`_proposedTokensNeeded != 0`).
+- Resets the voting round and emits `CloseVoteForTokensNeeded`.
+
+### `getVoteForNewTokensNeeded()`
+
+- Returns:
+  - The proposed new token count (`_proposedTokensNeeded`).
+  - The number of affirmative and negative votes.
+  - The timestamp of when the voting round was initiated.
+
+## Constraints
+
+- The contract is abstract and should be extended to include specific functionalities.
+- Only owners can initiate votes, cast votes, and close voting rounds.
+
+## Risk Factors
+
+- Failure to properly secure the contract may expose it to vote manipulation.
+- Requires a balanced and fair owner structure for effective decision-making.
+
+## Use Cases
+
+Ideal for decentralized platforms where the threshold for ownership rights may need to change based on collective decision-making among multiple owners.
+
+## Contact Information
+
+For further questions and support, contact the development team.
+
+
+***
+
+<br>
+<br>
+
+# VotingNewImplementation
+
+## Overview
+
+The `VotingNewImplementation` smart contract is an abstract extension of `BaseUtilityAndOwnable`. It allows owners to initiate, participate in, and finalize voting rounds to change the current contract implementation.
+
+## Contract Events
+
+- `VotingForNewImplementation`: Emitted when a vote has been cast by an owner.
+- `VotingCompletedForNewImplementation`: Emitted when the voting has been completed.
+- `CloseVoteForNewImplementation`: Emitted when the voting has been manually closed.
+
+## Functionalities
+
+### `initiateVotingForNewImplementation(address _proposed)`
+
+- Initiates a new round of voting for a new implementation.
+- Access restricted to owners only.
+- Pre-requisites:
+  - The proposed address should not be null.
+  - Should be different from the current implementation.
+  - There should not be an active vote for a new implementation.
+  - The proposed address must meet certain standards (`_checkContract`).
+- Sets `_proposedImplementation` and the voting timestamp.
+
+### `voteForNewImplementation(bool vote)`
+
+- Allows an owner to cast their vote for or against the proposed implementation.
+- Invokes `_voteForNewImplementation()` internally.
+
+### `_voteForNewImplementation(bool vote)`
+
+- Internal function that handles the voting logic.
+- Pre-requisites:
+  - An active voting round should exist.
+- Emits `VotingForNewImplementation` event.
+- Checks for voting outcome:
+  - If in favor, updates the implementation.
+  - If against, resets the voting round.
+  
+### `closeVoteForNewImplementation()`
+
+- Allows an owner to manually close an active voting round.
+- Pre-requisites:
+  - An active voting round should exist.
+- Resets the voting state and emits `CloseVoteForNewImplementation`.
+
+### `getVoteForNewImplementationStatus()`
+
+- Returns the current status of voting.
+- Returns:
+  - Proposed new implementation address.
+  - Number of affirmative and negative votes.
+  - Timestamp of the initiation of the voting round.
+
+## Constraints
+
+- The contract is abstract and needs to be implemented in full for practical use.
+- Only owners can initiate, vote, and close voting rounds.
+
+## Risk Factors
+
+- Lack of enough owners or biased ownership can skew decisions.
+- Failure to verify the proposed implementation could result in adoption of malicious or buggy contracts.
+
+## Use Cases
+
+This contract is suitable for decentralized platforms or projects which require collective decision-making in selecting new implementations for smart contracts.
+
+## Contact Information
+
+For any questions or clarifications, please contact the development team.
+
+
+***
+
+<br>
+<br>
+
+# VotingNewOwner
+
+## Overview
+
+The `VotingNewOwner` smart contract is an abstract extension of `BaseUtilityAndOwnable`. The contract aims to facilitate a democratic approach to adding new owners to the contract. Existing owners can vote for or against a proposed new owner.
+
+## Contract Events
+
+- `InitiateOwnership`: Emitted when someone initiates a request to become an owner.
+- `VotingForNewOwner`: Emitted when an owner casts a vote for or against the proposed new owner.
+- `VotingCompletedForNewOwner`: Emitted when the voting round has been decided.
+- `CloseVoteForNewOwner`: Emitted when an owner manually closes the voting.
+
+## Functionalities
+
+### `initiateOwnershipRequest()`
+
+- Any address can initiate a request to become an owner.
+- Restrictions:
+  - The address should not already be an owner.
+  - Should not be on a blacklist.
+  - Voting on this issue shouldn't already be underway, or if it is, it should be past its expiry.
+  - There should be a gap of 30 days since the last initiation by the same address.
+- Sets `_proposedOwner` and initializes the votes.
+
+### `voteForNewOwner(bool vote)`
+
+- Allows an existing owner to vote for or against adding the proposed new owner.
+- Access restricted to current owners only.
+- Pre-requisites:
+  - An active voting round should exist.
+- Updates the votes and checks if a decision has been reached.
+
+### `closeVoteForNewOwner()`
+
+- Manually closes the active voting round.
+- Access restricted to current owners.
+- Pre-requisites:
+  - An active voting round should exist.
+- Resets the voting status.
+
+### `getVoteForNewOwnerStatus()`
+
+- Returns the current status of the voting round.
+- Provides:
+  - Proposed new owner's address.
+  - Number of affirmative and negative votes.
+  - Timestamp of the voting round initiation.
+
+## Constraints
+
+- The contract is abstract and needs to be fully implemented for practical use.
+- Only existing owners can vote and close voting rounds.
+
+## Risk Factors
+
+- Lack of active participation from existing owners may prolong decisions.
+- A high concentration of ownership may lead to biased outcomes.
+
+## Use Cases
+
+- This contract is useful for decentralized organizations or projects that require a democratic process for adding new owners to a contract.
+
+## Contact Information
+
+For further queries or clarifications, please get in touch with the development team.
+
+
+***
+
+<br>
+<br>
+
+# VotingRemoveOwner
+
+## Overview
+
+The `VotingRemoveOwner` contract is an abstract extension of `BaseUtilityAndOwnable`. The contract facilitates a democratic process for removing existing owners. Only current owners have the ability to initiate the voting process and cast votes.
+
+## Contract Events
+
+- `VotingForRemoveOwner`: Triggered when an owner casts a vote to remove the proposed owner.
+- `VotingCompletedForRemoveOwner`: Triggered when a decision has been made through voting.
+- `CloseVoteForRemoveOwner`: Triggered when a vote is forcibly closed before reaching a decision.
+
+## Functionalities
+
+### `initiateVotingForRemoveOwner(address _proposed)`
+
+- Initiates a voting process to remove an owner.
+- Parameters:
+  - `_proposed`: The address proposed to be removed from ownership.
+- Access restricted to current owners.
+- Pre-conditions:
+  - The proposed address must not be null.
+  - The proposed address must be an existing owner.
+- Automatically casts a "Yes" vote from the initiator.
+
+### `voteForRemoveOwner(bool vote)`
+
+- Allows an existing owner to vote for or against removing the proposed owner.
+- Parameters:
+  - `vote`: A boolean value representing the vote (`true` for removal, `false` for retention).
+- Access restricted to current owners.
+- Pre-conditions:
+  - A voting round must be active.
+  - The owner cannot vote to remove themselves.
+  
+### `_voteForRemoveOwner(bool vote)`
+
+- Internal function that handles the voting logic.
+- Parameters:
+  - `vote`: A boolean value representing the vote (`true` for removal, `false` for retention).
+- Updates the votes and checks if a decision has been reached.
+
+### `closeVoteForRemoveOwner()`
+
+- Allows an existing owner to forcibly close an open voting round without reaching a decision.
+- Access restricted to current owners.
+- Pre-conditions:
+  - A voting round must be active.
+
+### `getVoteForRemoveOwnerStatus()`
+
+- Returns the current status of the active voting round.
+- Provides:
+  - Address proposed for removal.
+  - Number of "Yes" and "No" votes.
+  - Timestamp of the voting round initiation.
+
+## Constraints
+
+- The contract is abstract and must be extended for practical use.
+- Only existing owners can initiate a vote and participate in the voting.
+
+## Risk Factors
+
+- Lack of participation may result in extended voting periods.
+- High concentration of ownership may lead to biased outcomes.
+
+## Use Cases
+
+- The contract is useful in decentralized organizations or projects where democratic processes are preferred for decision-making.
+
+## Contact Information
+
+For further queries, please reach out to the development team.
+
+
+***
+
+<br>
+<br>
+
+# Proxy
+
+## Overview
+
+The `Proxy` contract is an abstract implementation that extends the functionalities of `BaseUtilityAndOwnable` and `IProxy` interfaces. This contract serves as a proxy that forwards calls and Ether to an underlying implementation contract. It also adds utility functions for checking contract states and ownership details.
+
+## Contract Features
+
+- Delegation of calls to the implementation contract.
+- Checking contract state and ownership status.
+- Transfer of Ether to the implementation contract.
+
+## Functions
+
+### Internal Functions
+
+#### `_delegate()`
+
+- Delegates incoming calls to the implementation contract.
+- Pre-conditions:
+  - Contract should not be in the `_stopped` state.
+  - The implementation contract address should not be null.
+
+#### `_fallback()`
+
+- Internal fallback function that further delegates the call using `_delegate()`.
+
+### Public and External Functions
+
+#### Fallback Function
+
+- Handles incoming calls that don't match any function in the contract by invoking `_fallback()`.
+
+#### `receive()`
+
+- Forwards received Ether to the implementation contract.
+  
+#### `getCoreToken()`
+
+- Returns the main ERC20 token (`ANHYDRITE`) associated with the project.
+
+#### `implementation()`
+
+- Returns the address of the current implementation contract.
+
+#### `isStopped()`
+
+- Checks and returns whether the contract's basic functionalities are stopped.
+
+#### `getTotalOwners()`
+
+- Returns the total number of owners.
+
+#### `isProxyOwner(address ownerAddress)`
+
+- Checks if a given address has proxy ownership rights.
+
+#### `isOwner(address account)`
+
+- Checks if a given address is an owner.
+
+#### `getBalanceOwner(address owner)`
+
+- Returns the balance of an owner address.
+
+#### `getTokensNeededForOwnership()`
+
+- Returns the number of tokens needed to acquire ownership.
+
+#### `isBlacklisted(address account)`
+
+- Checks if a given address is blacklisted.
+
+## Constraints
+
+- The contract is abstract and must be extended for practical usage.
+- Delegate calls will fail if the contract is in the `_stopped` state or if the implementation address is null.
+
+## Security Features
+
+- Only proxy owners have the ability to access specific functionalities.
+- The contract can be stopped in case of emergencies.
+
+## Risk Factors
+
+- Proxy contracts add an additional layer of complexity.
+- If the implementation contract is compromised, the proxy and all its users are at risk.
+
+## Use Cases
+
+- Useful for projects that need upgradability without changing the main contract address.
+- Can be extended for specific use cases like governance, ownership, and utility functionalities.
+
+## Contact Information
+
+For further queries, please contact the development team.
+
+
+
+
+
+
