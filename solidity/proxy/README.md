@@ -1,14 +1,14 @@
-## Anhydrite Proxy Owners Smart Contract Documentation
+## AnhydriteProxyOwners Smart Contract Documentation
 
 ### Overview
 
-The Anhydrite Proxy Owners smart contract is designed to manage ownership, voting, and token interaction within the Anhydrite Gaming Ecosystem. This contract is part of a larger system and operates on the Binance Smart Chain. It primarily focuses on implementing a system for managing owners, allowing voluntary exit of an owner, transferring the native Anhydrite (ANH) tokens, and rescuing accidentally sent tokens. The contract also incorporates multiple voting mechanisms related to governance.
+The AnhydriteProxyOwners smart contract is designed to manage ownership, voting, and token interaction within the Anhydrite Gaming Ecosystem. This contract is part of a larger system and operates on the Binance Smart Chain. It primarily focuses on implementing a system for managing owners, allowing voluntary exit of an owner, transferring the native Anhydrite (ANH) tokens, and rescuing accidentally sent tokens. The contract also incorporates multiple voting mechanisms related to governance.
 
 ### Components
 
 The contract is built by extending multiple contracts and interfaces:
 - [**Proxy**: Manages the current logic implementation address for upgradeable contracts.](#proxy)
-- [**VotingStopped**: Mechanism to stop all voting.](#votingstopped)
+- [**VotingStopped**: Mechanism to stop services.](#votingstopped)
 - [**VotingNeededForOwnership**: Voting logic for becoming an owner.](#votingneededforownership)
 - [**VotingNewImplementation**: Voting logic for changing the logic implementation of the Proxy.](#votingnewimplementation)
 - [**VotingNewOwner**: Voting logic for adding a new owner.](#votingnewowner)
