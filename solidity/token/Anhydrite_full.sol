@@ -437,30 +437,26 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
         }
     }
 
-    /* Private function to add the ability for the external contract to handle the receive token event.
-     * For this, the external contract must inherit from the IERC20Receiver interface, and implement the function
-     * function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
-     * In the body of this function, process the event and send back the magic ID of the interface.
+    /*
+     * Private Function: _onERC20Received
+     * - Purpose: Checks if the recipient contract implements the IERC20Receiver interface and executes the corresponding logic.
+     * - Arguments:
+     *   - _from: The sender of the ERC-20 tokens.
+     *   - _to: The recipient of the ERC-20 tokens.
+     *   - _amount: The amount of tokens being sent.
+     * 
+     * - Behavior:
+     *   1. If `_to` is a smart contract that implements IERC20Receiver, this function calls its `onERC20Received` method.
+     *   2. The external contract is expected to return a "magic" identifier to confirm successful processing.
+     *      Failure to do so will result in the transaction being reverted.
+     *   3. If the external contract doesn't implement `IERC20Receiver`, the transfer will still go through, but it will be logged as not processed.
+     *   4. If the external contract does implement `IERC20Receiver`, but the event handling results in an exception,
+     *      changes in the external contract will be reverted, but the overall transaction will continue.
      *
-     * If the contract does not implement the IERC20Receiver interface, or if the event handling throws an exception
-     * this function will be ignored and the transaction will continue.
-     *
-     * In order to roll back the entire transaction, the outer contract must return false id.
-     *
-     * An example for an external contract implementing IERC20Receiver:
-
-    function onERC20Received(address, address, uint256) external pure override returns (bytes4) {
-        // Here you can process the obtained result and in case the conditions are not met,
-        // return a fake id like:
-        bool result = msg.sender == address(ANHYDRITE); // Your condition
-        if (result) {
-           // Your logic
-        } else {
-           return bytes4(keccak256("anything_else"));
-        }
-        return this.onERC20Received.selector;
-    }
+     * - Events:
+     *   - AnhydriteTokensReceivedProcessed: Emitted to indicate the processed status of the received tokens.
      */
+
     function _onERC20Received(address _from, address _to, uint256 _amount) private {
         if (Address.isContract(_to)) {
             bytes memory data = abi.encodeWithSelector(ERC20ReceivedMagic, _from, msg.sender, _amount);
@@ -477,21 +473,67 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
         }
     }
 
-    // Redefined function _afterTokenTransfer, to which the execution of the function _onERC20Received was added,
-    // if the sender and receiver of the tokens are not a address(0)
+    /*
+     * Overridden Function: _afterTokenTransfer
+     * - Purpose: Extends the original _afterTokenTransfer function by additionally invoking _onERC20Received when both the sender and recipient are not the zero address.
+     * - Arguments:
+     *   - from: The sender's address.
+     *   - to: The recipient's address.
+     *   - amount: The amount of tokens being transferred.
+     *
+     * - Behavior:
+     *   1. If the recipient's address (`to`) is not the zero address, this function calls the internal method _onERC20Received.
+     *
+     */
     function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
         if(to != address(0)) {
             _onERC20Received(from, to, amount);
         }
     }
 
-    // The _mint function has been redefined, to which a limit on the maximum supply of tokens has been added
+    /*
+     * Overridden Function: _mint
+     * - Purpose: Extends the original _mint function from the ERC20 contract to include a maximum supply limit.
+     * - Arguments:
+     *   - account: The address to which the new tokens will be minted.
+     *   - amount: The amount of tokens to mint.
+     * 
+     * - Behavior:
+     *   1. Checks if the total supply after the minting will exceed the MAX_SUPPLY constant.
+     *   2. If it doesn't, proceeds with minting the specified amount to the provided account.
+     *   3. If it does, reverts the transaction with a message indicating that the maximum supply limit has been reached.
+     *
+     * - Preconditions:
+     *   - The total supply plus the new minting amount must be less than or equal to MAX_SUPPLY.
+     *
+     * - Postconditions:
+     *   - The total supply of the tokens will be increased by the minting amount.
+     *   - The balance of the specified account will be increased by the minting amount.
+     */
     function _mint(address account, uint256 amount) internal virtual override {
         require(totalSupply() + amount <= MAX_SUPPLY, "Anhydrite: MAX_SUPPLY limit reached");
         super._mint(account, amount);
     }
 
-    // Overriding the onERC20Received function
+
+    /*
+     * Overridden Function: onERC20Received
+     * - Purpose: Implements the onERC20Received function from the IERC20Receiver interface to handle incoming ERC-20 tokens.
+     * - Arguments:
+     *   - _from: The sender of the ERC-20 tokens.
+     *   - _who: Indicates the original sender for forwarded tokens (useful in case of proxy contracts).
+     *   - _amount: The amount of tokens being sent.
+     * 
+     * - Behavior:
+     *   1. If the message sender is this contract itself, it emits a ReturnOfAnhydrite event and returns the method selector for onERC20Received, effectively acknowledging receipt.
+     *   2. If the message sender is not this contract, it returns a different bytes4 identifier, which signifies the tokens were not properly processed as per IERC20Receiver standards.
+     * 
+     * - Returns:
+     *   - The function returns a "magic" identifier (bytes4) that confirms the execution of the onERC20Received function.
+     *
+     * - Events:
+     *   - ReturnOfAnhydrite: Emitted when tokens are received from this contract itself.
+     */
     function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
         if (msg.sender == address(this)) {
             emit ReturnOfAnhydrite(_from, _who, _amount);
