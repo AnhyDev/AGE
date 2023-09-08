@@ -45,6 +45,7 @@ abstract contract VotingNewOwner is BaseUtilityAndOwnable {
         require(!_blackList[msg.sender], "Votes: This address is blacklisted");
         require(_proposedOwner == address(0) || block.timestamp >= _votesForNewOwner.timestamp + 7 days, "Votes: Voting on this issue is already underway");
         require(block.timestamp >= _initiateOwners[msg.sender] + 30 days, "Votes: Voting is still open");
+        require(_balanceOwner[msg.sender] >= _tokensNeededForOwnership, "Votes: Not enough Anhydrite to join the owners");
 
         _initiateOwners[msg.sender] = block.timestamp;
 
