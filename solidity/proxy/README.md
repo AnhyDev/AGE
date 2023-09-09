@@ -64,74 +64,77 @@ MIT License. See the source code for detailed licensing information.
 
 ## BaseUtilityAndOwnable
 
+### Table of Contents
+
+1. [Overview](#overview)
+2. [Constants and State Variables](#constants-and-state-variables)
+3. [Structs](#structs)
+4. [Methods](#methods)
+5. [Modifiers](#modifiers)
+
+---
+
 ### Overview
 
-The `BaseUtilityAndOwnable` abstract contract provides the core functionalities related to utility and ownership within a given ecosystem. It extends the `IERC721Receiver` interface for receiving NFTs and is highly adaptable to various needs such as managing ownership, voting, and token interactions.
+The `BaseUtilityAndOwnable` contract serves as the foundational layer for a smart contract system that integrates various functionalities like utility services, ownership, and interface compatibility. This contract handles ownership rights based on token balances, implements voting mechanisms, and supports specific interface checks.
 
-### Contract Components
+---
 
-#### Global Variables
+### Constants and State Variables
 
-- `ANHYDRITE`: Address of the main project token (ANH).
-- `_implementAGE`: Address of the global contract (AGE).
-- `_tokensNeededForOwnership`: Tokens required to obtain ownership rights.
-- Various mappings and variables for managing ownership and votes.
+#### Constants
 
-#### Structs
+- `ANHYDRITE`: The main project token (IANH interface), used primarily for determining ownership rights.
 
-- `VoteResult`: A struct to store the result of a vote with vote counts and timestamp.
+#### State Variables
 
-#### Modifiers
+- `_implementAGE`: Address of the Global contract (AGE).
+- `_tokensNeededForOwnership`: Amount of tokens required to attain ownership status.
+- `_totalOwners`: Total number of owners.
+- `_owners`: Mapping to track ownership status.
+- `_balanceOwner`: Mapping to track token balance for each owner.
+- `_isOwnerVotedOut`: Mapping to track whether an owner is under exclusion vote.
+- `_blackList`: Mapping of blacklisted addresses.
+- `_stopped`: Boolean flag indicating the service status.
+- `_votesForStopped`: Struct to hold vote outcomes for stopping the service.
 
-- `canClose`: Checks if 3 days have passed since the vote start.
-- `hasNotVoted`: Ensures the owner has not already voted.
-- `onlyOwner`: Allows only current owners to execute the function.
+---
 
-### Functionalities
+### Structs
 
-#### `_implementation()`
+- `VoteResult`: Stores the result of a vote with arrays for addresses that voted true or false and the timestamp when the vote was initiated.
 
-Returns the current global contract (AGE) address.
+---
 
-#### `_votes(VoteResult storage, bool)`
+### Methods
 
-Adds an owner's vote to either the `isTrue` or `isFalse` array in the `VoteResult` struct and returns the lengths of both arrays.
+#### Public and External Methods
 
-#### `_getVote(VoteResult, address)`
+- `supportsInterface`: Implementation of the ERC165 standard to check supported interfaces.
+- `onERC721Received`: Handles received NFTs and forwards them to the implementation contract.
 
-Returns details about the voting, including the address initiating the vote, number of true/false votes, and timestamp.
+#### Internal Methods
 
-#### `_resetVote(VoteResult storage)`
+- `_implementation`: Returns the Global contract (AGE) address.
+- `_votes`: Adds a vote and returns the current vote counts.
+- `_getVote`: Returns details of a vote.
+- `_resetVote`: Resets vote counts.
+- `_closeVote`: Closes voting after 3 days.
+- `_increaseByPercent`: Increases the interest rate for specific owners or arrays of owners.
+- `_hasOwnerVoted`: Checks if an owner has voted in a particular vote.
+- `_isProxyOwner`: Validates if an address is a proxy owner based on certain conditions.
+- `_checkContract`: Checks if a contract implements a specific IAGE interface.
 
-Resets the `VoteResult` struct, clearing all votes and the timestamp.
+---
 
-#### `_closeVote(VoteResult storage)`
+### Modifiers
 
-Closes the vote if 3 days have passed since the vote's initiation and resets the `VoteResult` struct.
+- `canClose`: Checks if 3 days have passed since the vote started.
+- `hasNotVoted`: Ensures an owner has not voted on the issue.
+- `onlyOwner`: Restricts access to proxy owners.
 
-#### `_increaseByPercent(address)`
+---
 
-Increases the interest (token balance) of a specific owner by a percentage.
-
-#### `_increaseByPercent(address[], address[])`
-
-Increases the interest for all the owners in the provided address arrays.
-
-#### `_hasOwnerVoted(VoteResult, address)`
-
-Checks if an owner has already voted.
-
-#### `_isProxyOwner(address)`
-
-Validates an owner's voting rights based on conditions such as ownership status and token balance.
-
-#### `onERC721Received(address, address, uint256, bytes)`
-
-Handles received NFTs, ensuring that the sender supports the ERC-721 interface and forwarding the NFTs to the `_implementation()` address.
-
-#### `_checkContract(address)`
-
-Checks if a contract implements a specific `IAGE` interface.
 
 ***
 

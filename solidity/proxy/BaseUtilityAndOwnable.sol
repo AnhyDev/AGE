@@ -30,12 +30,11 @@ import "@openzeppelin/contracts/utils/Address.sol";
  * with the software or the use or other dealings in the software.
  */
 
-
 //Base contract for utility and ownership functionalities
-abstract contract BaseUtilityAndOwnable is IERC721Receiver {
+abstract contract BaseUtilityAndOwnable is IERC721Receiver, IERC165 {
 
  // Main project token (ANH) address
- IANH internal constant ANHYDRITE = IANH(0x578b350455932aC3d0e7ce5d7fa62d7785872221);
+ IANH internal constant ANHYDRITE = IANH(0xE30B7FC00df9016E8492e71760169BB66Fc6f77C);
  // Global contract (AGE) address
  address internal _implementAGE;
  // Tokens required for ownership rights
@@ -64,6 +63,18 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver {
  bool internal _proposedStopped = false;
  VoteResult internal _votesForStopped;
 
+ mapping(bytes4 => bool) internal supportedInterfaces;
+
+ constructor() {
+     supportedInterfaces[0x01ffc9a7] = true;
+     supportedInterfaces[type(IProxy).interfaceId] = true;
+ }
+
+
+ // Realization ERC165
+ function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+     return supportedInterfaces[interfaceId];
+ }
 
  // Returns global contract (AGE) address
  function _implementation() internal view returns (address){
@@ -89,6 +100,7 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver {
          vote.timestamp
      );
  }
+ 
  // Resets vote counts after voting
  function _resetVote(VoteResult storage vote) internal {
      _increaseByPercent(vote.isTrue, vote.isFalse);

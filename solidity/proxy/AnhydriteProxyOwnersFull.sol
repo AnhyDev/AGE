@@ -31,10 +31,10 @@ import "@openzeppelin/contracts/utils/Address.sol";
  */
 
 // Base contract for utility and ownership functionalities
-abstract contract BaseUtilityAndOwnable is IERC721Receiver {
+abstract contract BaseUtilityAndOwnable is IERC721Receiver, IERC165 {
 
     // Main project token (ANH) address
-    IANH internal constant ANHYDRITE = IANH(0x578b350455932aC3d0e7ce5d7fa62d7785872221);
+    IANH internal constant ANHYDRITE = IANH(0xE30B7FC00df9016E8492e71760169BB66Fc6f77C);
     // Global contract (AGE) address
     address internal _implementAGE;
     // Tokens required for ownership rights
@@ -63,6 +63,18 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver {
     bool internal _proposedStopped = false;
     VoteResult internal _votesForStopped;
 
+    mapping(bytes4 => bool) internal supportedInterfaces;
+
+    constructor() {
+        supportedInterfaces[0x01ffc9a7] = true;
+        supportedInterfaces[type(IProxy).interfaceId] = true;
+    }
+
+
+    // Realization ERC165
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        return supportedInterfaces[interfaceId];
+    }
 
     // Returns global contract (AGE) address
     function _implementation() internal view returns (address){
@@ -88,6 +100,7 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver {
             vote.timestamp
         );
     }
+    
     // Resets vote counts after voting
     function _resetVote(VoteResult storage vote) internal {
         _increaseByPercent(vote.isTrue, vote.isFalse);
@@ -394,6 +407,7 @@ abstract contract VotingNewOwner is BaseUtilityAndOwnable {
         require(!_blackList[msg.sender], "Votes: This address is blacklisted");
         require(_proposedOwner == address(0) || block.timestamp >= _votesForNewOwner.timestamp + 7 days, "Votes: Voting on this issue is already underway");
         require(block.timestamp >= _initiateOwners[msg.sender] + 30 days, "Votes: Voting is still open");
+        require(_balanceOwner[msg.sender] >= _tokensNeededForOwnership, "Votes: Not enough Anhydrite to join the owners");
 
         _initiateOwners[msg.sender] = block.timestamp;
 
@@ -706,10 +720,12 @@ contract AnhydriteProxyOwners
 
     // Implementation of IERC20Receiver, for receiving ERC20 tokens.
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4) {
-        if (msg.sender == address(ANHYDRITE)) {
-            if (_owners[_who]) {
-                _balanceOwner[_who] += _amount;
-                emit DepositAnhydrite(_from, _who, _amount);
+        if (Address.isContract(msg.sender)) {
+            if (msg.sender == address(ANHYDRITE)) {
+                if (_owners[_who]) {
+                    _balanceOwner[_who] += _amount;
+                    emit DepositAnhydrite(_from, _who, _amount);
+                }
             }
             return this.onERC20Received.selector;
         }
