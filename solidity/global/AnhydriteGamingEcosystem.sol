@@ -1,7 +1,31 @@
-// SPDX-License-Identifier: All rights reserved
-// Anything related to the Anhydrite project, except for the OpenZeppelin library code, is protected.
-// Copying, modifying, or using without proper attribution to the Anhydrite project and a link to https://anh.ink is strictly prohibited.
-
+// SPDX-License-Identifier: Apache License 2.0
+/*
+ * Copyright (C) 2023 Anhydrite Gaming Ecosystem
+ *
+ * This code is part of the Anhydrite Gaming Ecosystem.
+ *
+ * ERC-20 Token: Anhydrite ANH
+ * Network: Binance Smart Chain
+ * Website: https://anh.ink
+ * GitHub: https://github.com/Anhydr1te/AnhydriteGamingEcosystem
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that explicit attribution to the original code and website
+ * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * Portions of this code are derived from OpenZeppelin contracts, which are licensed
+ * under the MIT License. Those portions are not subject to this license. For details,
+ * see https://github.com/OpenZeppelin/openzeppelin-contracts
+ *
+ * This code is provided as-is, without warranty of any kind, express or implied,
+ * including but not limited to the warranties of merchantability, fitness for a 
+ * particular purpose, and non-infringement. In no event shall the authors or 
+ * copyright holders be liable for any claim, damages, or other liability, whether 
+ * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
+ * with the software or the use or other dealings in the software.
+ */
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -12,251 +36,272 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-
-
-abstract contract ControlExecution {
-
-    mapping(address => uint256) internal  _executes;
-
-    function _startExecute() internal {
-        require(_executes[msg.sender] == 0, "ControlExecution: Wait for the previous call to end");
-        _executes[msg.sender] = 1;
-    }
-
-    function _finishExecute() internal {
-        _executes[msg.sender] = 0;
-    }
-
-    modifier isExecutes() {
-        _startExecute();
-        _;
-        _finishExecute();
-    }
-}
-
-/*
-* GameServerMetadata is a smart contract that converts the elements of the GameServers enum to the name
-* and symbol of the game server blockchain contract.
-*
-* It does not read or change the blockchain.
-*/
-interface IGameServerMetadata {
-    function gameServerToString(uint256 gameId) external pure returns (string memory, string memory);
-}
-
-abstract contract GameServerMetadata is IGameServerMetadata {
-        enum GameServers {
-        /*  0. */ Minecraft,
-        /*  1. */ CSGO,
-        /*  2. */ GTA_Online,
-        /*  3. */ ARK_Survival_Evolved,
-        /*  4. */ Rust,
-        /*  5. */ Team_Fortress_2,
-        /*  6. */ Garrys_Mod,
-        /*  7. */ DayZ,
-        /*  8. */ Terraria,
-        /*  9. */ Starbound,
-        /* 10. */ Unturned,
-        /* 11. */ Factorio,
-        /* 12. */ Space_Engineers,
-        /* 13. */ Conan_Exiles,
-        /* 14. */ Empyrion_Galactic_Survival,
-        /* 15. */ Battlefield_Series,
-        /* 16. */ Call_of_Duty_Series,
-        /* 17. */ Seven_Days_to_Die,
-        /* 18. */ CS_1_6,
-        /* 19. */ OtherServersGames,
-        /* 20. */ CentralizedGames,
-        /* 21. */ END_OF_LIST
-    }
-
-    // Checks if a given uint256 gameId is in the GameServers enum, and if so, returns the corresponding name and character.
-    function gameServerToString(uint256 gameId) external override pure returns (string memory, string memory) {
-        return _gameServerToString(gameId);
-    }
-
-    function _gameServerToString(uint256 gameId) internal pure returns (string memory, string memory) {
-        GameServers game = GameServers(gameId);
-        if (game == GameServers.Minecraft) {
-            return ("Anhydrite Minecraft server contract", "ANH_MC");
-        }
-        if (game == GameServers.CSGO) {
-            return ("Anhydrite CSGO server contract", "ANH_CSGO");
-        }
-        if (game == GameServers.GTA_Online) {
-            return ("GTA Online server contract", "ANH_GTA");
-        }
-        if (game == GameServers.ARK_Survival_Evolved) {
-            return ("Anhydrite ARK Survival Evolved server contract", "ANH_ARKS");
-        }
-        if (game == GameServers.Rust) {
-            return ("Anhydrite Rust server contract", "ANH_RST");
-        }
-        if (game == GameServers.Team_Fortress_2) {
-            return ("Anhydrite Team Fortress 2 server contract", "ANH_TF");
-        }
-        if (game == GameServers.Garrys_Mod) {
-            return ("Anhydrite Garrys Mod server contract", "ANH_GM");
-        }
-        if (game == GameServers.DayZ) {
-            return ("Anhydrite DayZ server contract", "ANH_DZ");
-        }
-        if (game == GameServers.Terraria) {
-            return ("Anhydrite Terraria server contract", "ANH_TER");
-        }
-        if (game == GameServers.Starbound) {
-            return ("Anhydrite Starbound server contract", "ANH_SB");
-        }
-        if (game == GameServers.Unturned) {
-            return ("Anhydrite Unturned server contract", "ANH_UNT");
-        }
-        if (game == GameServers.Factorio) {
-            return ("Anhydrite Factorio server contract", "ANH_FCT");
-        }
-        if (game == GameServers.Space_Engineers) {
-            return ("Anhydrite Space Engineers server contract", "ANH_SPE");
-        }
-        if (game == GameServers.Conan_Exiles) {
-            return ("Anhydrite Conan Exiles server contract", "ANH_CE");
-        }
-        if (game == GameServers.Empyrion_Galactic_Survival) {
-            return ("Anhydrite Empyrion Galactic Survival server contract", "ANH_EGS");
-        }
-        if (game == GameServers.Battlefield_Series) {
-            return ("Anhydrite Battlefield Series server contract", "ANH_BF");
-        }
-        if (game == GameServers.Call_of_Duty_Series) {
-            return ("Anhydrite Call of Duty Series server contract", "ANH_CDS");
-        }
-        if (game == GameServers.Seven_Days_to_Die) {
-            return ("Anhydrite Seven Days to Die server contract", "ANH_SDD");
-        }
-        if (game == GameServers.CS_1_6) {
-            return ("Counter-Strike 1.6 server contract", "ANH_CS16");
-        }
-        if (game == GameServers.OtherServersGames) {
-            return ("Anhydrite Other Games server contract", "ANH_OTHER");
-        }
-        if (game == GameServers.CentralizedGames) {
-            return ("Anhydrite Centralized Games server contract", "ANH_CG");
-        }
-        return ("Anhydrite server module ", "ANH_");
-    }
-}
-
-/*
-* VotingOwner is the only way to change the owner of a smart contract.
-* The standard Ownable owner change functions from OpenZeppelin are blocked.
-*/
-interface IVotingOwner {
-    function proposedVoteForOwner(address proposed) external;
-    function voteForNewOwner(bool vote) external;
-    function getActiveForVoteOwner() external view returns (bool, address);
-
-    event VotingForOwner(address indexed voter, address votingSubject, bool vote);
-    event VotingOwnerCompleted(address indexed voter, address votingSubject, bool vote, uint votesFor, uint votesAgainst);
-}
-
-abstract contract VotingOwner is IVotingOwner, Ownable, ControlExecution {
+abstract contract BaseUtility is Ownable {
     
-    IProxy internal immutable _proxyContract;
+    // Main project token (ANH) address
+    IANH internal constant ANHYDRITE = IANH(0x30cbF6931D7Ae248bf1D06e60931CE95096d4Aa0);
+    
+    // This contract is responsible for storing metadata related to various gaming servers.
+    IGameData private _gameData;
 
+    // Returns the interface address of the proxy contract
+    function getProxyAddress() public view returns (address) {
+        return ANHYDRITE.getProxyAddress();
+    }
+
+    function _proxyContract() internal view returns(IProxy) {
+        return IProxy(ANHYDRITE.getProxyAddress());
+    }
+
+    // Checks whether the address is among the owners of the proxy contract
+    function _isProxyOwner(address senderAddress) internal view returns (bool) {
+        return _proxyContract().isProxyOwner(senderAddress);
+    }
+
+    function setGameServerMetadata(address contracrAddress) external onlyOwner onlyProxyOwner {
+        _gameData = IGameData(contracrAddress);
+    }
+
+    function getGameServerMetadata() external view returns (address) {
+        return address(_gameData);
+    }
+
+    function getServerData(uint256 gameId) external view returns (string memory, string memory) {
+        return _getServerData(gameId);
+    }
+
+    function _getServerData(uint256 gameId) internal view returns (string memory, string memory) {
+        string memory name = "Anhydrite server module ";
+        string memory symbol = "AGE_";
+        if (address(_gameData) != address(0)) {
+            (name, symbol) = _gameData.getServerData(gameId);
+        }
+        return (name, symbol);
+    }
+
+    // Voting structure
     struct VoteResult {
         address[] isTrue;
         address[] isFalse;
         uint256 timestamp;
     }
 
-    address internal _proposedOwner;
-    VoteResult internal _votesForNewOwner;
-
-    constructor(address proxyAddress) {
-        _proxyContract = IProxy(proxyAddress);
+    // Adds the voter's address to the corresponding list and also returns the total number of votes, upvotes and downvotes
+    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
+        uint256 _totalOwners = 1;
+        if (address(_proxyContract()) != address(0)) {
+            _totalOwners = _proxyContract().getTotalOwners();
+        } 
+        if (vote) {
+            result.isTrue.push(msg.sender);
+        } else {
+            result.isFalse.push(msg.sender);
+        }
+        return (result.isTrue.length, result.isFalse.length, _totalOwners);
     }
 
-    // Please provide the address of the new owner for the smart contract.
-    function proposedVoteForOwner(address proposedOwner) external override onlyProxyOwner(msg.sender) {
-        require(!_isActiveForVoteOwner(), "VotingOwner: voting is already activated");
-        require(!_proxyContract.isBlacklisted(proposedOwner), "VotingOwner: this address is blacklisted");
-        require(_isProxyOwner(proposedOwner), "VotingOwner: caller is not the proxy owner");
+    // Clears structure after voting
+    function _resetVote(VoteResult storage vote) internal {
+        vote.isTrue = new address[](0);
+        vote.isFalse = new address[](0);
+        vote.timestamp = 0;
+    }
+    
+    function _completionVoting(VoteResult storage result) internal {
+        _increaseArrays(result);
+        _resetVote(result);
+    }
+
+    // Calls the poll structure cleanup function if 3 or more days have passed since it started
+    function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
+        _resetVote(vote);
+    }
+
+    function _increaseArrays(VoteResult memory result) internal {
+        if (address(_proxyContract()) != address(0)) {
+            address[] memory isTrue = result.isTrue;
+            address[] memory isFalse = result.isFalse;
+
+            uint256 length1 = isTrue.length;
+            uint256 length2 = isFalse.length;
+            uint256 totalLength = length1 + length2;
+
+            address[] memory merged = new address[](totalLength);
+            for (uint256 i = 0; i < length1; i++) {
+                merged[i] = isTrue[i];
+            }
+
+            for (uint256 j = 0; j < length2; j++) {
+                merged[length1 + j] = isFalse[j];
+            }
+
+            _increase(merged);
+        }
+    }
+
+    function _increase(address[] memory owners) internal {
+        _proxyContract().increase(owners);
+    }
+
+    // Checks whether the address is a contract that implements the IProxy interface
+    function _checkIProxyContract(address contractAddress) internal view returns (bool) {
+
+        if (Address.isContract(contractAddress)) {
+            IERC165 targetContract = IERC165(contractAddress);
+            return targetContract.supportsInterface(type(IProxy).interfaceId);
+        }
+
+        return false;
+    }
+    
+    // Checks whether the address has voted
+    function _hasOwnerVoted(VoteResult memory result, address targetAddress) internal pure returns (bool) {
+        for (uint256 i = 0; i < result.isTrue.length; i++) {
+            if (result.isTrue[i] == targetAddress) {
+                return true;
+            }
+        }
+        for (uint256 i = 0; i < result.isFalse.length; i++) {
+            if (result.isFalse[i] == targetAddress) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
+    modifier onlyProxyOwner() {
+        IProxy proxy = _proxyContract();
+        if (address(proxy) != address(0) && proxy.getTotalOwners() > 0) {
+            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxy owner");
+        } else {
+            _checkOwner();
+        }
+        _;
+    }
+
+    // Modifier for checking whether 3 days have passed since the start of voting and whether it can be closed
+    modifier canClose(uint256 timestamp) {
+        require(block.timestamp >= timestamp + 3 days, "BaseUtility: Voting is still open");
+        _;
+    }
+
+    // A modifier that returns true if the given address has not yet been voted
+    modifier hasNotVoted(VoteResult memory result) {
+        require(!_hasOwnerVoted(result, msg.sender), "BaseUtility: Already voted");
+        _;
+    }
+
+    // This override function and is deactivated
+    function renounceOwnership() public view override onlyOwner {
+        revert("BaseUtility: this function is deactivated");
+    }
+}
+// Interface for interacting with the Anhydrite contract.
+interface IANH is IERC20 {
+    // Returns the interface address of the proxy contract
+    function getProxyAddress() external view returns (address);
+}
+interface IProxy {
+    // Returns the total number of owners
+    function getTotalOwners() external view returns (uint256);
+    // Checks if an address is a proxy owner (has voting rights)
+    function isProxyOwner(address tokenAddress) external view returns (bool);
+    // Checks if an address is blacklisted
+    function isBlacklisted(address account) external view returns (bool);
+    // Increases interest for voting participants
+    function increase(address[] memory addresses) external;
+}
+// Returns the contract name and symbol of a game based on its ID.
+interface IGameData {
+    function getServerData(uint256 gameId) external view returns (string memory, string memory);
+}
+
+/*
+ * This abstract contract extends the UtilityVotingAndOwnable contract to manage the ownership of the smart contract.
+ * Key features include:
+ * 1. Initiating a proposal for changing the owner of the smart contract.
+ * 2. Allowing current proxy owners to vote on the proposed new owner.
+ * 3. Automatic update of the contract's owner if a 60% threshold of affirmative votes is reached.
+ * 4. Automatic cancellation of the proposal if over 40% of the votes are against it.
+ * 5. Functionality to manually close an open vote that has been pending for more than three days without a conclusive decision.
+ * 6. Events to log voting actions and outcomes for transparency and auditing purposes.
+ * 7. Utility functions to check the status of the active vote and the validity of the proposed new owner.
+ * 8. Override of the standard 'transferOwnership' function to initiate the voting process, with additional checks against a blacklist and validation of the proposed owner.
+ */
+abstract contract OwnableManager is BaseUtility {
+
+    // Proposed new owner
+    address internal _proposedOwner;
+    // Structure for counting votes
+    VoteResult internal _votesForNewOwner;
+
+    // Event about the fact of voting, parameters: voter, proposedOwner, vote
+    event VotingForOwner(address indexed voter, address proposedOwner, bool vote);
+    // Event about the fact of making a decision on voting, parameters: voter, proposedOwner, vote, votesFor, votesAgainst
+    event VotingOwnerCompleted(address indexed voter, address proposedOwner, bool vote, uint votesFor, uint votesAgainst);
+    // Event to close a poll that has expired
+    event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
+
+
+    // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
+    function transferOwnership(address proposedOwner) public override virtual onlyProxyOwner {
+        require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
+        if (address(_proxyContract()) != address(0)) {
+            require(!_proxyContract().isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
+            require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
+        }
 
         _proposedOwner = proposedOwner;
         _votesForNewOwner = VoteResult(new address[](0), new address[](0), block.timestamp);
         _voteForNewOwner(true);
     }
 
-    function voteForNewOwner(bool vote) external override onlyProxyOwner(_proposedOwner) {
+    // Vote For New Owner
+    function voteForNewOwner(bool vote) external onlyProxyOwner {
         _voteForNewOwner(vote);
     }
 
-    // Voting for the address of the new owner of the smart contract
-    function _voteForNewOwner(bool vote) internal isExecutes {
-        require(_isActiveForVoteOwner(), "VotingOwner: there are no votes at this address");
+    // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
+    function _voteForNewOwner(bool vote) internal hasNotVoted(_votesForNewOwner) {
+        require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
 
-        if (vote) {
-            _votesForNewOwner.isTrue.push(msg.sender);
-        } else {
-            _votesForNewOwner.isFalse.push(msg.sender);
-        }
-
-        uint256 _totalOwners = _proxyContract.getTotalOwners();
-
-        uint votestrue = _votesForNewOwner.isTrue.length;
-        uint votesfalse = _votesForNewOwner.isFalse.length;
+        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
 
         emit VotingForOwner(msg.sender, _proposedOwner, vote);
 
         if (votestrue * 100 >= _totalOwners * 60) {
             _transferOwnership(_proposedOwner);
-            _resetVote(_votesForNewOwner);
-            emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
+            _completionVotingNewOwner(vote, votestrue, votesfalse);
         } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForNewOwner);
-            emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
+            _completionVotingNewOwner(vote, votestrue, votesfalse);
         }
+    }
+    
+    // Completion of voting
+    function _completionVotingNewOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+        _completionVoting(_votesForNewOwner);
+        _proposedOwner = address(0);
+    }
+
+    // A function to close a vote on which a decision has not been made for three or more days
+    function closeVoteForNewOwner() public onlyOwner {
+        require(_proposedOwner != address(0), "OwnableManager: There is no open vote");
+        emit CloseVoteForNewOwner(msg.sender, _proposedOwner, _votesForNewOwner.isTrue.length, _votesForNewOwner.isFalse.length);
+        _closeVote(_votesForNewOwner);
+        _proposedOwner = address(0);
     }
 
     // Check if voting is enabled for new contract owner and their address.
-    function getActiveForVoteOwner() external view returns (bool, address) {
-        require(_isActiveForVoteOwner(), "VotingOwner: re is no active voting");
-        return (_isActiveForVoteOwner(), _proposedOwner);
+    function getActiveForVoteOwner() external view returns (address) {
+        require(_isActiveForVoteOwner(), "OwnableManager: re is no active voting");
+        return _proposedOwner;
     }
 
+    // Function to check if the proposed Owner address is valid
     function _isActiveForVoteOwner() internal view returns (bool) {
         return _proposedOwner != address(0) && _proposedOwner !=  owner();
-    }
-
-    function _resetVote(VoteResult storage vote) internal {
-        vote.isTrue = new address[](0);
-        vote.isFalse = new address[](0);
-        vote.timestamp = 0;
-    }
-
-    function _isProxyOwner(address senderAddress) internal view returns (bool) {
-        return _proxyContract.isProxyOwner(senderAddress);
-    }
-
-    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
-    modifier onlyProxyOwner(address senderAddress) {
-        require(_isProxyOwner(senderAddress), "VotingOwner: caller is not the proxy owner");
-        _;
-    }
-
-    // The renounceOwnership() function is blocked
-    function renounceOwnership() public override onlyOwner onlyProxyOwner(msg.sender) {
-        bool deact = false;
-        require(deact, "VotingOwner: this function is deactivated");
-        _transferOwnership(owner());
-    }
-
-    // The transferOwnership(address newOwner) function is blocked
-    function transferOwnership(address newOwner) public override onlyOwner onlyProxyOwner(msg.sender) {
-        bool deact = false;
-        require(deact, "VotingOwner: this function is deactivated");
-        require(newOwner != address(0), "VotingOwner: new owner is the zero address");
-        _transferOwnership(owner());
     }
 }
 
@@ -264,37 +309,27 @@ abstract contract VotingOwner is IVotingOwner, Ownable, ControlExecution {
 * The Monitorings smart contract is designed to work with monitoring,
 * add, delete, vote for the server, get the number of votes, and more.
 */
-interface IMonitorings {
-    function addMonitoring(address newAddress) external;
-    function getMonitoring() external view returns (uint256, address);
-    function getNumberOfMonitorings() external view returns (uint256);
-    function getMonitoringAddresses() external view returns (uint256[] memory, address[] memory);
-    function removeMonitoringAddress(address addressToRemove) external;
-    function isServerMonitored(address serverAddress) external view returns (bool);
-    function voteForServer(address serverAddress) external;
-    function getTotalServerVotes(address serverAddress) external view returns (uint256);
-}
+abstract contract Monitorings is BaseUtility {
 
-abstract contract Monitorings is VotingOwner, IMonitorings {
-
+    enum ServerStatus {NotFound, Monitored, Blocked}
     address[] internal _monitoring;
 
     // Add a new address to the monitoring list.
-    function addMonitoring(address newAddress) external override onlyOwner onlyProxyOwner(msg.sender) {
+    function addMonitoring(address newAddress) external onlyOwner onlyProxyOwner {
         _monitoring.push(newAddress);
     }
 
     // Get the last non-zero monitoring address and its index.
-    function getMonitoring() external view override returns (uint256, address) {
+    function getMonitoring() external view returns (uint256, address) {
         return _getMonitoring();
     }
 
-    function getNumberOfMonitorings() external view override returns (uint256) {
+    function getNumberOfMonitorings() external view returns (uint256) {
         return _monitoring.length;
     }
 
     // Get the list of non-zero monitoring addresses and their indices.
-    function getMonitoringAddresses() external override view returns (uint256[] memory, address[] memory) {
+    function getMonitoringAddresses() external view returns (uint256[] memory, address[] memory) {
         uint256 count = 0;
         for (uint256 i = 0; i < _monitoring.length; i++) {
             if (_monitoring[i] != address(0)) {
@@ -313,14 +348,12 @@ abstract contract Monitorings is VotingOwner, IMonitorings {
                 index++;
             }
         }
-
         return (indices, addresses);
     }
 
     // Remove an address from the monitoring list by replacing it with the zero address.
-    function removeMonitoringAddress(address addressToRemove) external override onlyOwner  onlyProxyOwner(msg.sender) {
+    function removeMonitoringAddress(address addressToRemove) external onlyOwner  onlyProxyOwner {
         bool found = false;
-
         // Find the address to be removed and replace it with the zero address.
         for (uint256 i = 0; i < _monitoring.length; i++) {
             if (_monitoring[i] == addressToRemove) {
@@ -329,110 +362,109 @@ abstract contract Monitorings is VotingOwner, IMonitorings {
                 break;
             }
         }
-
-        require(found, "Address not found in monitoring list");
+        require(found, "Monitorings: Address not found in monitoring list");
     }
 
-    // Check whether the specified address is monitored
-    function isServerMonitored(address serverAddress) external override view returns (bool) {
+    // Check whether the specified address is monitored and not blocked
+    function isServerMonitored(address serverAddress) external view returns (bool) {
         return _isServerMonitored(serverAddress);
     }
-
     function _isServerMonitored(address serverAddress) internal view returns (bool) {
-        require(serverAddress != address(0), "Server address cannot be zero address");
-
-        bool exists = false;
-
-        for(uint i = 0; i < _monitoring.length; i++) {
-            if(address(_monitoring[i]) == address(0)) {
-                continue;
-            }
-
-            if(IAnhydriteMonitoring(_monitoring[i]).isServerExist(serverAddress)) {
-                exists = true;
-                break;
-            }
-        }
-
-        return exists;
+        (ServerStatus status,) = _getVotesMonitoredOrBlocked(serverAddress, false);
+        return status == ServerStatus.Monitored;
     }
 
+    // Check whether the specified address is monitored but blocked
+    function isServerBlocked(address serverAddress) external view returns (bool) {
+        return _isServerBlocked(serverAddress);
+    }
     function _isServerBlocked(address serverAddress) internal view returns (bool) {
-        require(serverAddress != address(0), "Server address cannot be zero address");
+        (ServerStatus status,) = _getVotesMonitoredOrBlocked(serverAddress, false);
+        return status == ServerStatus.Blocked;
+    }
 
-        bool exists = false;
+    // Get the number of votes on monitorings for the specified address
+    function getTotalServerVotes(address serverAddress) external view returns (uint256) {
+        (,uint256 totalVotes) = _getVotesMonitoredOrBlocked(serverAddress, true);
+        return totalVotes;
+    }
 
+    /**
+     * @dev Retrieves the monitoring status and optionally the total votes for a given server address.
+     * This function iterates through the `_monitoring` array and checks each monitoring contract to determine
+     * whether the server exists, and if it does, whether it is blocked or simply being monitored.
+     * 
+     * @param serverAddress The address of the server to be checked.
+     * @param getVotes A boolean flag indicating whether to retrieve the total votes for the server.
+     * 
+     * @return A tuple containing the ServerStatus enum value (NotFound, Monitored, Blocked) and the total votes.
+     *         - ServerStatus: Indicates the final monitoring status of the server.
+     *         - totalVotes: The total number of votes for this server across all monitoring contracts. 
+     *                       This value is only meaningful if `getVotes` is true and the server is not blocked.
+     * 
+     * Requirements:
+     * - serverAddress must not be the zero address.
+     */
+    function _getVotesMonitoredOrBlocked(address serverAddress, bool getVotes) internal view returns (ServerStatus, uint256) {
+        require(serverAddress != address(0), "Monitorings: Server address cannot be zero address");
+        ServerStatus status = ServerStatus.NotFound;
+        uint256 totalVotes = 0;
         for(uint i = 0; i < _monitoring.length; i++) {
             if(address(_monitoring[i]) == address(0)) {
                 continue;
             }
-
-            (bool blocked,) = IAnhydriteMonitoring(_monitoring[i]).isServerBlocked(serverAddress);
-            if (blocked) {
-                exists = true;
-                break;
+            IAGEMonitoring monitoring = IAGEMonitoring(_monitoring[i]);
+            if(monitoring.isServerExist(serverAddress)) {
+                status = ServerStatus.Monitored;
+                if (getVotes) {
+                    totalVotes += monitoring.getServerVotes(serverAddress);
+                }
+                (bool blocked,) = monitoring.isServerBlocked(serverAddress);
+                if (blocked) {
+                    status = ServerStatus.Blocked;
+                    totalVotes = 0;
+                    break;
+                }
             }
         }
-
-        return exists;
+        return (status, totalVotes);
     }
 
     // Vote on monitoring for the address
-    function voteForServer(address serverAddress) external override {
+    function voteForServer(address serverAddress) external {
         _voteForServer(serverAddress);
     }
-
     function _voteForServer(address serverAddress) internal {
+        require(_isServerMonitored(serverAddress), "Monitorings: This address is not monitored or blocked");
         (, address monitoringAddress) = _getMonitoring();
-        require(monitoringAddress != address(0), "Invalid monitoring address");
-        require(_isServerMonitored(serverAddress), "This address is not monitored.");
-        require(!_isServerBlocked(serverAddress), "This address is not blocked.");
 
-        IAnhydriteMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress);
+        IAGEMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress);
     }
 
     function _getMonitoring() internal view returns (uint256, address) {
-        require(_monitoring.length > 0, "Monitoring list is empty");
+        require(_monitoring.length > 0, "Monitorings: Monitoring list is empty");
         for (uint256 i = _monitoring.length; i > 0; i--) {
             if (_monitoring[i - 1] != address(0)) {
                 return (i - 1, _monitoring[i - 1]);
             }
         }
-        revert("No non-zero addresses found in the monitoring list");
-    }
-
-    // Get the number of votes on monitorings for the specified address
-    function getTotalServerVotes(address serverAddress) external override view returns (uint256) {
-        require(serverAddress != address(0), "Server address cannot be zero address");
-
-        uint256 totalVotes = 0;
-
-        for(uint i = 0; i < _monitoring.length; i++) {
-            if(address(_monitoring[i]) == address(0)) {
-                continue;
-            }
-
-            if(IAnhydriteMonitoring(_monitoring[i]).isServerExist(serverAddress)) {
-
-                (bool blocked,) = IAnhydriteMonitoring(_monitoring[i]).isServerBlocked(serverAddress);
-
-                if (blocked) {
-                    return 0;
-                }
-
-                totalVotes += IAnhydriteMonitoring(_monitoring[i]).getServerVotes(serverAddress);
-            }
-        }
-
-        return totalVotes;
+        revert("Monitorings: No non-zero addresses found in the monitoring list");
     }
 
     function _addServerToMonitoring(uint256 gameId, address serverAddress) internal {
         (, address monitoringAddress) = _getMonitoring();
-        require(monitoringAddress != address(0), "Invalid monitoring address");
+        require(monitoringAddress != address(0), "Monitorings: Invalid monitoring address");
 
-        IAnhydriteMonitoring(monitoringAddress).addServerAddress(gameId, serverAddress);
+        IAGEMonitoring(monitoringAddress).addServerAddress(gameId, serverAddress);
     }
+}
+
+interface IAGEMonitoring {
+    function addServerAddress(uint256 gameId, address serverAddress) external;
+    function voteForServer(address voterAddress, address serverAddress) external;
+    function isServerExist(address serverAddress) external view returns (bool);
+    function isServerBlocked(address serverAddress) external view returns (bool, uint256);
+    function getServerVotes(address serverAddress) external view returns (uint256);
 }
 
 /*
@@ -442,24 +474,15 @@ abstract contract Monitorings is VotingOwner, IMonitorings {
 * Enum available module types: Server, ItemShop, Voting, Lottery, Raffle, Game, Advertisement,
 * AffiliateProgram, Event, RatingSystem, SocialFunctions, Auction, Charity
 */
-interface IModules {
-    function addModule(string memory moduleName, uint256 uintType, address contractAddress) external;
-    function addGameServerModule(uint256 gameId, address contractAddress) external;
-    function removeModule(string memory moduleName, uint256 uintType) external;
-    function getModuleAddress(string memory name, uint256 uintType) external view returns (address);
-    function isModuleExists(string memory name, uint256 uintType) external view returns (bool);
-    function isGameModuleExists(uint256 gameId, uint256 uintType) external view returns (bool);
-    function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress) external returns (address);
-    function deployServerContract(uint256 gameId) external returns (address);
-}
 
-abstract contract Modules is Monitorings, GameServerMetadata, IModules {
+abstract contract Modules is Monitorings {
 
     enum ModuleType {
         Server, ItemShop, Voting, Lottery, Raffle, Game, Advertisement, AffiliateProgram, Event,
         RatingSystem, SocialFunctions,  Auction, Charity
     }
     
+    IGameData private _gameData;
     struct Module {
         string moduleName; ModuleType moduleType; address moduleFactory;
     }
@@ -468,13 +491,13 @@ abstract contract Modules is Monitorings, GameServerMetadata, IModules {
     mapping(bytes32 => Module) private _modules;
 
     // Add a module
-    function addModule(string memory moduleName, uint256 uintType, address contractAddress) external override onlyOwner  onlyProxyOwner(msg.sender) {
+    function addModule(string memory moduleName, uint256 uintType, address contractAddress) external onlyOwner  onlyProxyOwner {
         _addModule(moduleName, uintType, contractAddress);
     }
 
     // Add a Game Server Module
-    function addGameServerModule(uint256 gameId, address contractAddress) external override onlyOwner  onlyProxyOwner(msg.sender) {
-        (string memory moduleName,) = _gameServerToString(gameId);
+    function addGameServerModule(uint256 gameId, address contractAddress) external onlyOwner  onlyProxyOwner {
+        (string memory moduleName,) = _getServerData(gameId);
         uint256 uintType = uint256(ModuleType.Server);
         _addModule(moduleName, uintType, contractAddress);
     }
@@ -523,7 +546,7 @@ abstract contract Modules is Monitorings, GameServerMetadata, IModules {
     }
 
     // Remove a module
-    function removeModule(string memory moduleName, uint256 uintType) external override onlyOwner  onlyProxyOwner(msg.sender) {
+    function removeModule(string memory moduleName, uint256 uintType) external onlyOwner  onlyProxyOwner {
         bytes32 hash = _getModuleHash(moduleName, uintType);
         _modules[hash] = Module("", ModuleType.Voting, address(0));
         for (uint i = 0; i < _moduleList.length; i++) {
@@ -540,18 +563,18 @@ abstract contract Modules is Monitorings, GameServerMetadata, IModules {
     }
     
     // Get Module Address
-    function getModuleAddress(string memory name, uint256 uintType) external override view returns (address) {
+    function getModuleAddress(string memory name, uint256 uintType) external view returns (address) {
         Module memory module = _getModule(name, uintType);
         return module.moduleFactory;
     }
 
     // Check if a module exists
-    function isModuleExists(string memory name, uint256 uintType) external override view returns (bool) {
+    function isModuleExists(string memory name, uint256 uintType) external view returns (bool) {
         bytes32 hash = _getModuleHash(name, uintType);
         return _isModuleExists(hash);
     }
-    function isGameModuleExists(uint256 gameId, uint256 uintType) external override view returns (bool) {
-        (string memory name,) = _gameServerToString(gameId);
+    function isGameModuleExists(uint256 gameId, uint256 uintType) external view returns (bool) {
+        (string memory name,) = _getServerData(gameId);
         bytes32 hash = _getModuleHash(name, uintType);
         return _isModuleExists(hash);
     }
@@ -562,14 +585,15 @@ abstract contract Modules is Monitorings, GameServerMetadata, IModules {
     }
     
     // Deploy the module on the server
-    function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress) external override onlyServerAutorised(msg.sender) returns (address) {
-        return _deploy(uint256(GameServers.END_OF_LIST), factoryName, uintType, ownerAddress);
+    function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress) external onlyServerAutorised(msg.sender) returns (address) {
+        uint256 END_OF_LIST = 1000;
+        return _deploy(END_OF_LIST, factoryName, uintType, ownerAddress);
     }
     
     // Deploy the server smart contract
-    function deployServerContract(uint256 gameId) external override returns (address) {
+    function deployServerContract(uint256 gameId) external returns (address) {
         uint256 uintType = uint256(ModuleType.Server);
-        (string memory contractName,) = _gameServerToString(gameId);
+        (string memory contractName,) = _getServerData(gameId);
 
         address minecraftServerAddress = _deploy(gameId, contractName, uintType, address(0));
 
@@ -585,9 +609,9 @@ abstract contract Modules is Monitorings, GameServerMetadata, IModules {
         bytes32 hash = _getModuleHash(factoryName, uintType);
         require(_isModuleExists(hash), "The module with this name and type does not exist");
         
-        (string memory name, string memory symbol) = _gameServerToString(gameId);
+        (string memory name, string memory symbol) = _getServerData(gameId);
         return IFactory(_getModule(factoryName, uintType).moduleFactory)
-            .createModule(name, symbol, msg.sender, ownerAddress);
+            .deployModule(name, symbol, msg.sender, ownerAddress);
     }
 
     // Get a module
@@ -604,36 +628,31 @@ abstract contract Modules is Monitorings, GameServerMetadata, IModules {
 
     // This modifier checks if the address trying to deploy the module is an authorized server
     modifier onlyServerAutorised(address contractAddress) {
-        require(_isServerMonitored(contractAddress), "This address is not monitored.");
-        require(!_isServerBlocked(contractAddress), "This address is not blocked.");
+        require(_isServerMonitored(contractAddress), "This address is not monitored or blocked.");
         _;
     }
-
+}
+interface IFactory {
+    function deployModule(string memory name, string memory symbol, address serverContractAddress, address ownerAddress) external returns (address);
 }
 
-interface IFinances {
-    function withdrawMoney(address payable recipient, uint256 amount) external;
-    function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external;
-    function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external;
-}
-
-abstract contract Finances is Modules, IFinances {
+abstract contract Finances is BaseUtility {
 
    // Function for transferring Ether
-    function withdrawMoney(address payable recipient, uint256 amount) external override onlyOwner onlyProxyOwner(msg.sender) {
+    function withdrawMoney(address payable recipient, uint256 amount) external onlyOwner onlyProxyOwner{
         require(address(this).balance >= amount, "Contract has insufficient balance");
         recipient.transfer(amount);
     }
 
     // Function for transferring ERC20 tokens
-    function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external override onlyOwner onlyProxyOwner(msg.sender) {
+    function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external onlyOwner onlyProxyOwner {
         IERC20 token = IERC20(_tokenAddress);
         require(token.balanceOf(address(this)) >= _amount, "Not enough tokens on contract balance");
         token.transfer(_to, _amount);
     }
 
     // Function for transferring ERC721 tokens
-    function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external override onlyOwner onlyProxyOwner(msg.sender) {
+    function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external onlyOwner onlyProxyOwner {
         ERC721 token = ERC721(_tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "The contract is not the owner of this token");
         token.safeTransferFrom(address(this), _to, _tokenId);
@@ -641,7 +660,16 @@ abstract contract Finances is Modules, IFinances {
 
 }
 
-interface IAnhydriteGlobal {
+// Interface for contracts that are capable of receiving ERC20 (ANH) tokens.
+interface IERC20Receiver {
+    // Function that is triggered when ERC20 (ANH) tokens are received.
+    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+
+    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
+    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
+}
+
+interface IAGE {
     function getVersion() external pure returns (uint256);
     function addPrice(string memory name, uint256 count) external;
     function getPrice(string memory name) external view returns (uint256);
@@ -650,7 +678,8 @@ interface IAnhydriteGlobal {
 }
 
 // 
-contract AnhydriteGamingEcosystem is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Burnable, Finances, IAnhydriteGlobal {
+contract AnhydriteGamingEcosystem is OwnableManager, Finances, Monitorings, Modules, IAGE,  
+  ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Burnable, IERC20Receiver {
     using Counters for Counters.Counter;
 
     uint256 constant private _version = 0;
@@ -659,12 +688,20 @@ contract AnhydriteGamingEcosystem is ERC721, ERC721Enumerable, ERC721URIStorage,
     mapping(address => uint256) private _contractToken;
     mapping(string => uint256) private _prices;
 
-    constructor(address proxyAddress) ERC721("Anhydrite Gaming Ecosystem", "AGE") VotingOwner(proxyAddress) {
+    // Event emitted when Anhydrite tokens are deposited.
+    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
+
+    constructor() ERC721("Anhydrite Gaming Ecosystem", "AGE") {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(msg.sender, tokenId);
         _setTokenURI(tokenId, "ipfs://bafkreif66z2aeoer6lyujghufat3nxtautrza3ucemwcwgfiqpajjlcroy");
         _tokenContract[tokenId] = msg.sender;
+        IERC1820Registry iERC1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("IAGE"), address(this));
+        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("ERC721"), address(this));
+        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("ERC165"), address(this));
+        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
     }
 
     // Special functions of the global contract.
@@ -674,7 +711,7 @@ contract AnhydriteGamingEcosystem is ERC721, ERC721Enumerable, ERC721URIStorage,
     }
 
     // Add the cost of the service. This value is the number of Anhydrite tokens that will be burned when receiving this service.
-    function addPrice(string memory name, uint256 count) public override onlyOwner  onlyProxyOwner(msg.sender) {
+    function addPrice(string memory name, uint256 count) public override onlyOwner  onlyProxyOwner {
         _prices[name] = count;
     }
 
@@ -691,6 +728,41 @@ contract AnhydriteGamingEcosystem is ERC721, ERC721Enumerable, ERC721URIStorage,
     // Get the tokenId of the token received by the server's smart contract during deployment during its deployment
     function getTokenIdFromServer(address serverAddress) public override view returns (uint256) {
         return _contractToken[serverAddress];
+    }
+
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        bytes4 fakeID = bytes4(keccak256("anything_else"));
+        bytes4 validID = this.onERC20Received.selector;
+        bytes4 returnValue = fakeID;  // Default value
+        if (Address.isContract(msg.sender)) {
+            if (msg.sender == address(ANHYDRITE)) {
+                emit DepositAnhydrite(_from, _who, _amount);
+                returnValue = validID;
+            } else {
+                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
+                    if (balance >= _amount) {
+                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
+                        returnValue = validID;
+                    }
+                } catch {
+                    // No need to change returnValue, it's already set to fakeID
+                }
+            }
+        }
+        return returnValue;
+    }
+
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
+        return interfaceId == type(IAGE).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    // Setting which smart contract overrides the transferOwnership function
+    function transferOwnership(address proposedOwner) public override (Ownable, OwnableManager) {
+        OwnableManager.transferOwnership(proposedOwner);
     }
 
     // During the deployment of the server smart contract, a new token is minted and sent to the address of this contract
@@ -714,40 +786,9 @@ contract AnhydriteGamingEcosystem is ERC721, ERC721Enumerable, ERC721URIStorage,
     function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
         super._burn(tokenId);
     }
-
-    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
-        return super.tokenURI(tokenId);
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
-        return interfaceId == type(IAnhydriteGlobal).interfaceId || super.supportsInterface(interfaceId);
-    }
-
-    modifier onlyTokenOwner(uint256 tokenId) {
-        require(ownerOf(tokenId) == msg.sender, "Not token owner");
-        _;
-    }
 }
 
-interface IProxy {
-    function getToken() external view returns (IERC20);
-    function getTotalOwners() external view returns (uint256);
-    function isBlacklisted(address account) external view returns (bool);
-    function isProxyOwner(address tokenAddress) external view returns (bool);
-}
-
-interface IFactory {
-    function createModule(string memory name, string memory symbol, address serverContractAddress, address ownerAddress) external returns (address);
-}
-
-interface IAnhydriteMonitoring {
-    function addServerAddress(uint256 gameId, address serverAddress) external;
-    function voteForServer(address voterAddress, address serverAddress) external;
-    function isServerExist(address serverAddress) external view returns (bool);
-    function isServerBlocked(address serverAddress) external view returns (bool, uint256);
-    function getServerVotes(address serverAddress) external view returns (uint256);
-}
-
-interface ANH_ERC20 {
-    function xContract(uint256 amount) external;
+interface IERC1820Registry {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+    function getInterfaceImplementer(address account, bytes32 interfaceHash) external view returns (address);
 }

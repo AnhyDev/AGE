@@ -1,7 +1,31 @@
-// SPDX-License-Identifier: All rights reserved
-// Anything related to the Anhydrite project, except for the OpenZeppelin library code, is protected.
-// Copying, modifying, or using without proper attribution to the Anhydrite project and a link to https://anh.ink is strictly prohibited.
-
+// SPDX-License-Identifier: Apache License 2.0
+/*
+ * Copyright (C) 2023 Anhydrite Gaming Ecosystem
+ *
+ * This code is part of the Anhydrite Gaming Ecosystem.
+ *
+ * ERC-20 Token: Anhydrite ANH
+ * Network: Binance Smart Chain
+ * Website: https://anh.ink
+ * GitHub: https://github.com/Anhydr1te/AnhydriteGamingEcosystem
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that explicit attribution to the original code and website
+ * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * Portions of this code are derived from OpenZeppelin contracts, which are licensed
+ * under the MIT License. Those portions are not subject to this license. For details,
+ * see https://github.com/OpenZeppelin/openzeppelin-contracts
+ *
+ * This code is provided as-is, without warranty of any kind, express or implied,
+ * including but not limited to the warranties of merchantability, fitness for a 
+ * particular purpose, and non-infringement. In no event shall the authors or 
+ * copyright holders be liable for any claim, damages, or other liability, whether 
+ * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
+ * with the software or the use or other dealings in the software.
+ */
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -40,9 +64,194 @@ abstract contract Finances is Ownable, IFinances {
 
 }
 
-abstract contract ModuleCashback is ERC20, Ownable {
+/*
+ * IANHReceiver Interface:
+ * - Purpose: To handle the receiving of ERC-20 tokens from another smart contract.
+ * - Key Method: 
+ *   - `onERC20Received`: This is called when tokens are transferred to a smart contract implementing this interface.
+ *                        It allows for custom logic upon receiving tokens.
+ */
+
+// Interface for contracts that are capable of receiving ERC20 (ANH) tokens.
+interface IERC20Receiver {
+    // Function that is triggered when ERC20 (ANH) tokens are received.
+    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+
+    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
+    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
+}
+
+/*
+ * ERC20Receiver Contract:
+ * - Inherits From: IERC20Receiver, ERC20
+ * - Purpose: To handle incoming ERC-20 tokens and trigger custom logic upon receipt.
+ * - Special Features:
+ *   - Verifies the compliance of receiving contracts with the IERC20Receiver interface.
+ *   - Uses the ERC1820 Registry to identify contracts that implement the IERC20Receiver interface.
+ *   - Safely calls `onERC20Received` on the receiving contract and logs any exceptions.
+ *   - Extends the standard ERC20 `_afterTokenTransfer` function to incorporate custom logic.
+ * 
+ * - Key Methods:
+ *   - `_onERC20Received`: Internal function to verify and trigger `onERC20Received` on receiving contracts.
+ *   - `_afterTokenTransfer`: Overridden from ERC20 to add additional behavior upon token transfer.
+ *   - `onERC20Received`: Implements the IERC20Receiver interface, allowing the contract to handle incoming tokens.
+ * 
+ * - Events:
+ *   - TokensReceivedProcessed: Logs successful processing of incoming tokens by receiving contracts.
+ *   - ExceptionInfo: Logs exceptions during the execution of `onERC20Received` on receiving contracts.
+ *   - ReturnOfThisToken: Logs when tokens are received from this contract itself.
+ * 
+ */
+abstract contract ERC20Receiver is IERC20Receiver, ERC20 {
+
+    // The magic identifier for the ability in the external contract to cancel the token acquisition transaction
+    bytes4 internal ERC20ReceivedMagic;
+
+    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+
+    // Confirm receipt and handling of Anhydrite tokens by external IERC20Receiver contract
+    event TokensReceivedProcessed(address indexed from, address indexed who, address indexed receiver, uint256 amount);
+    // An event to log the return of Anhydrite tokens to this smart contract
+    event ReturnOfThisToken(address indexed from, address indexed who, address indexed thisToken, uint256 amount);
+    // An event about an exception that occurred during the execution of an external contract
+    event ExceptionInfo(address indexed to, string exception);
+
+
+    constructor() {
+        ERC20ReceivedMagic = IERC20Receiver(address(this)).onERC20Received.selector;
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC20"), address(this));
+    }
+
+    /*
+     * Overridden Function: onERC20Received
+     * - Purpose: Implements the onERC20Received function from the IERC20Receiver interface to handle incoming ERC-20 tokens.
+     * - Arguments:
+     *   - _from: The sender of the ERC-20 tokens.
+     *   - _who: Indicates the original sender for forwarded tokens (useful in case of proxy contracts).
+     *   - _amount: The amount of tokens being sent.
+     * 
+     * - Behavior:
+     *   1. If the message sender is this contract itself, it emits a ReturnOfAnhydrite event and returns the method selector for onERC20Received, effectively acknowledging receipt.
+     *   2. If the message sender is not this contract, it returns a different bytes4 identifier, which signifies the tokens were not properly processed as per IERC20Receiver standards.
+     * 
+     * - Returns:
+     *   - The function returns a "magic" identifier (bytes4) that confirms the execution of the onERC20Received function.
+     *
+     * - Events:
+     *   - ReturnOfAnhydrite: Emitted when tokens are received from this contract itself.
+     *   - DepositERC20: Emitted when other tokens of the EPC-20 standard are received
+     */
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        bytes4 fakeID = bytes4(keccak256("anything_else"));
+        bytes4 validID = ERC20ReceivedMagic;
+        bytes4 returnValue = fakeID;  // Default value
+        if (msg.sender.code.length > 0) {
+            if (msg.sender == address(this)) {
+                emit ReturnOfThisToken(_from, _who, address(this), _amount);
+                returnValue = validID;
+            } else {
+                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
+                    if (balance >= _amount) {
+                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
+                        returnValue = validID;
+                    }
+                } catch {
+                    // No need to change returnValue, it's already set to fakeID 
+                }
+            }
+        }
+        return returnValue;
+    }
+
+    // An abstract function for implementing a whitelist to handle trusted contracts with special logic.
+    // If this is not required, implement a simple function that always returns false
+    function _checkWhitelist(address checked) internal view virtual returns (bool);
+
+    /*
+     * Private Function: _onERC20Received
+     * - Purpose: Verifies if the receiving contract complies with the IERC20Receiver interface and triggers corresponding events.
+     * - Arguments:
+     *   - _from: The origin address of the ERC-20 tokens.
+     *   - _to: The destination address of the ERC-20 tokens.
+     *   - _amount: The quantity of tokens being transferred.
+     * 
+     * - Behavior:
+     *   1. Checks if `_to` is a contract address. If not, no further action is taken.
+     *   2. If `_to` is a smart contract and is whitelisted, the `onERC20Received` method of `_to` is invoked, expecting a magic value in return.
+     *   3. If `_to` is recognized as an IERC20Receiver by the ERC1820Registry, a try-catch block is used to safely call `onERC20Received` and log any exceptions.
+     *   4. If `_to` doesn't fall into any of the above categories, an event is emitted to log the tokens as unprocessed.
+     *
+     * - Events:
+     *   - AnhydriteTokensReceivedProcessed: Triggered to indicate whether the tokens were successfully processed by the receiving contract.
+     *   - ExceptionInfo: Triggered when an exception occurs in the receiving contract's `onERC20Received` method, logging the reason for failure.
+     */
+    function _onERC20Received(address _from, address _to, uint256 _amount) internal {
+	    if (_to.code.length > 0) {
+            if (_checkWhitelist(msg.sender)) {
+	            bytes4 retval = IERC20Receiver(_to).onERC20Received(_from, msg.sender, _amount);
+                if (retval != ERC20ReceivedMagic) {
+                    revert ("ERC20Receiver: An invalid magic ID was returned");
+                }
+                emit TokensReceivedProcessed(_from, msg.sender, _to, _amount);
+            } else if (erc1820Registry.getInterfaceImplementer(msg.sender, keccak256("IERC20Receiver")) == msg.sender) {
+	            try IERC20Receiver(_to).onERC20Received(_from, msg.sender, _amount) returns (bytes4 retval) {
+	                require(retval == ERC20ReceivedMagic, "ERC20Receiver: An invalid magic ID was returned");
+                    emit TokensReceivedProcessed(_from, msg.sender, _to, _amount);
+	            } catch Error(string memory reason) {
+                    emit ExceptionInfo(_to, reason);
+	            } catch (bytes memory lowLevelData) {
+                    string memory infoError = "Another error";
+                    if (lowLevelData.length > 0) {
+                        infoError = string(lowLevelData);
+                    }
+                    emit ExceptionInfo(_to, infoError);
+	            }
+            }
+	    }
+	}
+
+    /*
+     * Overridden Function: _afterTokenTransfer
+     * - Purpose: Extends the original _afterTokenTransfer function by additionally invoking _onERC20Received when recepient are not the zero address.
+     * - Arguments:
+     *   - from: The sender's address.
+     *   - to: The recipient's address.
+     *   - amount: The amount of tokens being transferred.
+     *
+     * - Behavior:
+     *   1. If the recipient's address (`to`) is not the zero address, this function calls the internal method _onERC20Received.
+     *
+     */
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        if(to != address(0)) {
+            _onERC20Received(from, to, amount);
+        }
+    }
+}
+interface IERC1820Registry {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+    function getInterfaceImplementer(address account, bytes32 interfaceHash) external view returns (address);
+}
+
+// Interface for interacting with the Anhydrite contract.
+interface IANH is IERC20 {
+    // Returns the interface address of the proxy contract
+    function getProxyAddress() external view returns (address);
+    // Gets the max supply of the token.
+    function getMaxSupply() external pure returns (uint256);
+    // Transfers tokens for the proxy.
+    function transferForProxy(uint256 amount) external;
+    // Is the address whitelisted
+    function isinWhitelist(address contractAddress) external view returns (bool);
+}
+
+abstract contract ModuleCashback is ERC20Receiver, Ownable {
     uint256 internal _cashback;
 
+    // Main project token (ANH) address
+    IANH internal constant ANHYDRITE = IANH(0x869c859A01935Fa5f0fc24a92C1c3C69f9b9ff6a);
+    
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
         _cashback = 10 * 10 ** decimals();
         _mint(owner(), 1000 * 10 ** decimals());
@@ -54,6 +263,11 @@ abstract contract ModuleCashback is ERC20, Ownable {
 
     function setCashback(uint256 cashback) external onlyOwner {
         _cashback = cashback;
+    }
+
+    // An abstract function for implementing a whitelist to handle trusted contracts with special logic.
+    function _checkWhitelist(address checked) internal view override virtual returns (bool) {
+        return ANHYDRITE.isinWhitelist(checked);
     }
 
 }
@@ -330,7 +544,7 @@ contract FactoryContract {
         proxyAddress = _proxyAddress;
     }
 
-    function createModule(string memory name, string memory symbol, address serverContractAddress, address ownerAddress) public onlyAllowed(serverContractAddress) returns (address) {
+    function deployModule(string memory name, string memory symbol, address serverContractAddress, address ownerAddress) public onlyAllowed(serverContractAddress) returns (address) {
         ModuleSales newModule = new ModuleSales(serverContractAddress, name, symbol);
         if (ownerAddress != address(0)) {
             newModule.transferOwnership(ownerAddress);

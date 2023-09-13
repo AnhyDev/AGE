@@ -1,12 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.8.19;
-
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-
+// SPDX-License-Identifier: Apache License 2.0
 /*
  * Copyright (C) 2023 Anhydrite Gaming Ecosystem
  *
@@ -15,12 +7,17 @@ import "@openzeppelin/contracts/utils/Address.sol";
  * ERC-20 Token: Anhydrite ANH
  * Network: Binance Smart Chain
  * Website: https://anh.ink
+ * GitHub: https://github.com/Anhydr1te/AnhydriteGamingEcosystem
  *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that explicit attribution to the original code and website
  * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * Portions of this code are derived from OpenZeppelin contracts, which are licensed
+ * under the MIT License. Those portions are not subject to this license. For details,
+ * see https://github.com/OpenZeppelin/openzeppelin-contracts
  *
  * This code is provided as-is, without warranty of any kind, express or implied,
  * including but not limited to the warranties of merchantability, fitness for a 
@@ -30,11 +27,18 @@ import "@openzeppelin/contracts/utils/Address.sol";
  * with the software or the use or other dealings in the software.
  */
 
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+
 // Base contract for utility and ownership functionalities
 abstract contract BaseUtilityAndOwnable is IERC721Receiver, IERC165 {
 
     // Main project token (ANH) address
-    IANH internal constant ANHYDRITE = IANH(0xE30B7FC00df9016E8492e71760169BB66Fc6f77C);
+    IANH internal constant ANHYDRITE = IANH(0x869c859A01935Fa5f0fc24a92C1c3C69f9b9ff6a);
     // Global contract (AGE) address
     address internal _implementAGE;
     // Tokens required for ownership rights
@@ -221,14 +225,18 @@ abstract contract VotingStopped is BaseUtilityAndOwnable {
 
         if (votestrue * 100 >= _totalOwners * 60) {
             _stopped = _proposedStopped;
-            _resetVote(_votesForStopped);
-            emit VotingCompletedForStopped(msg.sender, true, votestrue, votesfalse);
+           _completionVotingStopped(vote, votestrue, votesfalse);
             
        } else if (votesfalse * 100 > _totalOwners * 40) {
            _proposedStopped = _stopped;
-            _resetVote(_votesForStopped);
-            emit VotingCompletedForStopped(msg.sender, false, votestrue, votesfalse);
+           _completionVotingStopped(vote, votestrue, votesfalse);
         }
+    }
+
+    // Completion of voting
+    function _completionVotingStopped(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+         emit VotingCompletedForStopped(msg.sender, vote, votestrue, votesfalse);
+        _resetVote(_votesForStopped);
     }
 
     // Close the vote manually
@@ -290,14 +298,17 @@ abstract contract VotingNeededForOwnership is BaseUtilityAndOwnable {
 
         if (votestrue * 100 >= _totalOwners * 60) {
             _tokensNeededForOwnership = _proposedTokensNeeded;
-            emit VotingCompletedForTokensNeeded(msg.sender, vote, votestrue, votesfalse);
-            _resetVote(_votesForTokensNeeded);
-            _proposedTokensNeeded = 0;
+            _completionVotingNeededOwnership(vote, votestrue, votesfalse);
        } else if (votesfalse * 100 > _totalOwners * 40) {
-            emit VotingCompletedForTokensNeeded(msg.sender, vote, votestrue, votesfalse);
-            _resetVote(_votesForTokensNeeded);
-            _proposedTokensNeeded = 0;
+            _completionVotingNeededOwnership(vote, votestrue, votesfalse);
         }
+    }
+
+    // Completion of voting
+    function _completionVotingNeededOwnership(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        emit VotingCompletedForTokensNeeded(msg.sender, vote, votestrue, votesfalse);
+        _resetVote(_votesForTokensNeeded);
+        _proposedTokensNeeded = 0;
     }
 
     // Close the vote manually
@@ -359,14 +370,17 @@ abstract contract VotingNewImplementation is BaseUtilityAndOwnable {
 
         if (votestrue * 100 >= _totalOwners * 60) {
             _implementAGE = _proposedImplementation;
-            _resetVote(_votesForNewImplementation);
-            emit VotingCompletedForNewImplementation(msg.sender, vote, votestrue, votesfalse);
-            _proposedImplementation = address(0);
+            _completionVotingImplementation(vote, votestrue, votesfalse);
         } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForNewImplementation);
-            emit VotingCompletedForNewImplementation(msg.sender, vote, votestrue, votesfalse);
-            _proposedImplementation = address(0);
+            _completionVotingImplementation(vote, votestrue, votesfalse);
         }
+    }
+
+    // Completion of voting
+    function _completionVotingImplementation(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        emit VotingCompletedForNewImplementation(msg.sender, vote, votestrue, votesfalse);
+        _resetVote(_votesForNewImplementation);
+        _proposedImplementation = address(0);
     }
 
     // Function to close the voting for a new implementation
@@ -427,14 +441,17 @@ abstract contract VotingNewOwner is BaseUtilityAndOwnable {
         if (votestrue * 100 >= _totalOwners * 60) {
             _owners[_proposedOwner] = true;
             _totalOwners++;
-            _resetVote(_votesForNewOwner);
-            emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
+            _completionVotingNewOwner(vote, votestrue, votesfalse);
         } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForNewOwner);
-            emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
+            _completionVotingNewOwner(vote, votestrue, votesfalse);
         }
+    }
+
+    // Completion of voting
+    function _completionVotingNewOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+        _resetVote(_votesForNewOwner);
+        _proposedOwner = address(0);
     }
     
     // Function to forcibly close the voting for a new owner if a decision hasn't been made in 3 days
@@ -494,19 +511,21 @@ abstract contract VotingRemoveOwner is BaseUtilityAndOwnable {
 
         if (votestrue * 100 >= _totalOwners * 60) {
             _owners[_proposedRemoveOwner] = false;
-            _resetVote(_votesForRemoveOwner);
             _balanceOwner[msg.sender] = 0;
-            _isOwnerVotedOut[_proposedRemoveOwner] = false;
             _blackList[_proposedRemoveOwner] = true;
-            emit VotingCompletedForRemoveOwner(msg.sender, _proposedRemoveOwner, vote, votestrue, votesfalse);
-            _proposedRemoveOwner = address(0);
+            _completionVotingRemoveOwner(vote, votestrue, votesfalse);
         } else if (votesfalse * 100 > _totalOwners * 40) {
             _totalOwners++;
-            _resetVote(_votesForRemoveOwner);
-            _isOwnerVotedOut[_proposedRemoveOwner] = false;
-            emit VotingCompletedForRemoveOwner(msg.sender, _proposedRemoveOwner, vote, votestrue, votesfalse);
-            _proposedRemoveOwner = address(0);
+            _completionVotingRemoveOwner(vote, votestrue, votesfalse);
         }
+    }
+
+    // Completion of voting
+    function _completionVotingRemoveOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        emit VotingCompletedForRemoveOwner(msg.sender, _proposedRemoveOwner, vote, votestrue, votesfalse);
+        _resetVote(_votesForRemoveOwner);
+        _isOwnerVotedOut[_proposedRemoveOwner] = false;
+        _proposedRemoveOwner = address(0);
     }
 
     // Function to forcibly close the vote to remove an owner
@@ -553,6 +572,9 @@ interface IProxy {
 
     // Checks if the contract is stopped
     function isStopped() external view returns (bool);
+    
+    // Increases interest for voting participants
+    function increase(address[] memory addresses) external;
 }
 
 // Proxy is an abstract contract that implements the IProxy interface and adds utility and ownership functionality.
@@ -637,12 +659,23 @@ abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
     function isBlacklisted(address account) external override view returns (bool) {
         return _blackList[account];
     }
+
+    // Increases interest for voting participants
+    function increase(address[] memory addresses) external {
+        require(msg.sender == address(ANHYDRITE), "BaseUtilityAndOwnable: This is a disabled feature for you");
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _increaseByPercent(addresses[i]);
+        }
+    }
 }
 
 // Interface for contracts that are capable of receiving ERC20 (ANH) tokens.
 interface IERC20Receiver {
     // Function that is triggered when ERC20 (ANH) tokens are received.
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+
+    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
+    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
 }
 
 // AnhydriteProxyOwners is an extension of several contracts and interfaces, designed to manage ownership, voting, and token interaction.
@@ -660,6 +693,9 @@ contract AnhydriteProxyOwners
         _owners[msg.sender] = true;
         _totalOwners++;
         _tokensNeededForOwnership = 100000 * 10 **18;
+        IERC1820Registry iERC1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
+        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("IProxy"), address(this));
     }
 
     // Allows an owner to voluntarily exit and withdraw their tokens.
@@ -719,17 +755,29 @@ contract AnhydriteProxyOwners
     }
 
     // Implementation of IERC20Receiver, for receiving ERC20 tokens.
-    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4) {
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        bytes4 fakeID = bytes4(keccak256("anything_else"));
+        bytes4 validID = this.onERC20Received.selector;
+        bytes4 returnValue = fakeID;  // Default value
         if (Address.isContract(msg.sender)) {
             if (msg.sender == address(ANHYDRITE)) {
                 if (_owners[_who]) {
                     _balanceOwner[_who] += _amount;
                     emit DepositAnhydrite(_from, _who, _amount);
+                    returnValue = validID;
+                }
+            } else {
+                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
+                    if (balance >= _amount) {
+                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
+                        returnValue = validID;
+                    }
+                } catch {
+                    // No need to change returnValue, it's already set to fakeID
                 }
             }
-            return this.onERC20Received.selector;
         }
-        return bytes4(keccak256("anything_else"));
+        return returnValue;
     }
 }
 
@@ -753,4 +801,9 @@ interface IANH is IERC20 {
     function getMaxSupply() external pure returns (uint256);
     // Transfers tokens for the proxy.
     function transferForProxy(uint256 amount) external;
+}
+
+interface IERC1820Registry {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+    function getInterfaceImplementer(address account, bytes32 interfaceHash) external view returns (address);
 }
