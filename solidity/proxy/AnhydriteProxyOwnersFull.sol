@@ -32,13 +32,26 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+
+abstract contract ERC165 is IERC165 {
+
+    mapping(bytes4 => bool) internal supportedInterfaces;
+
+    constructor() {
+        supportedInterfaces[0x01ffc9a7] = true;
+    }
+
+    // Realization ERC165
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        return supportedInterfaces[interfaceId];
+    }
+}
 
 // Base contract for utility and ownership functionalities
-abstract contract BaseUtilityAndOwnable is IERC721Receiver, IERC165 {
+abstract contract BaseUtilityAndOwnable is IERC721Receiver, ERC165 {
 
     // Main project token (ANH) address
-    IANH internal constant ANHYDRITE = IANH(0x869c859A01935Fa5f0fc24a92C1c3C69f9b9ff6a);
+    IANH internal constant ANHYDRITE = IANH(0x9a9a0EB311E937C7D75d3468C8b0135d4976DAa7);
     // Global contract (AGE) address
     address internal _implementAGE;
     // Tokens required for ownership rights
@@ -66,19 +79,6 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver, IERC165 {
     bool internal _stopped = false;
     bool internal _proposedStopped = false;
     VoteResult internal _votesForStopped;
-
-    mapping(bytes4 => bool) internal supportedInterfaces;
-
-    constructor() {
-        supportedInterfaces[0x01ffc9a7] = true;
-        supportedInterfaces[type(IProxy).interfaceId] = true;
-    }
-
-
-    // Realization ERC165
-    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
-        return supportedInterfaces[interfaceId];
-    }
 
     // Returns global contract (AGE) address
     function _implementation() internal view returns (address){
@@ -347,10 +347,10 @@ abstract contract VotingNewImplementation is BaseUtilityAndOwnable {
 
     // Function to initiate the voting process for a new implementation.
     function initiateVotingForNewImplementation(address _proposed) public onlyOwner {
-        require(_proposed != address(0), "Votes: Cannot set null address");
-        require(_implementation() != _proposed, "Votes: This vote will not change the implementation address");
-        require(_proposedImplementation == address(0), "Votes: Voting has already started");
-        require(_checkContract(_proposed), "Votes: The contract does not meet the standard");
+        require(_proposed != address(0), "VotingNewImplementation: Cannot set null address");
+        require(_implementation() != _proposed, "VotingNewImplementation: This vote will not change the implementation address");
+        require(_proposedImplementation == address(0), "VotingNewImplementation: Voting has already started");
+        require(_checkContract(_proposed), "VotingNewImplementation: The contract does not meet the standard");
         _proposedImplementation = _proposed;
         _votesForNewImplementation.timestamp = block.timestamp;
         _voteForNewImplementation(true);
@@ -362,7 +362,7 @@ abstract contract VotingNewImplementation is BaseUtilityAndOwnable {
     }
     // Internal function to handle the logic for voting for the proposed new implementation
     function _voteForNewImplementation(bool vote) internal hasNotVoted(_votesForNewImplementation) {
-        require(_proposedImplementation != address(0), "Votes: There is no active voting on this issue");
+        require(_proposedImplementation != address(0), "VotingNewImplementation: There is no active voting on this issue");
 
         (uint votestrue, uint votesfalse) = _votes(_votesForNewImplementation, vote);
 
@@ -385,7 +385,7 @@ abstract contract VotingNewImplementation is BaseUtilityAndOwnable {
 
     // Function to close the voting for a new implementation
     function closeVoteForNewImplementation() public onlyOwner {
-        require(_proposedImplementation != address(0), "There is no open vote");
+        require(_proposedImplementation != address(0), "VotingNewImplementation: There is no open vote");
         emit CloseVoteForNewImplementation(msg.sender, _votesForNewImplementation.isTrue.length, _votesForNewImplementation.isFalse.length);
         _closeVote(_votesForNewImplementation);
         _proposedImplementation = address(0);
@@ -580,6 +580,10 @@ interface IProxy {
 // Proxy is an abstract contract that implements the IProxy interface and adds utility and ownership functionality.
 abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
 
+    constructor() {
+        supportedInterfaces[type(IProxy).interfaceId] = true;
+    }
+
     // Internal function that delegates calls to the implementation contract
     function _delegate() internal virtual {
         require(!_stopped, "Proxy: Contract is currently _stopped.");
@@ -612,7 +616,8 @@ abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
 
     // Function to forward Ether received to the implementation contract
     receive() external payable {
-        Address.sendValue(payable(address(_implementation())), msg.value);
+        address payable recipient = payable(address(_implementation()));
+        recipient.transfer(msg.value);
     }
 
     // Returns the main ERC20 token of the project
@@ -673,9 +678,6 @@ abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
 interface IERC20Receiver {
     // Function that is triggered when ERC20 (ANH) tokens are received.
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
-
-    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
-    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
 }
 
 // AnhydriteProxyOwners is an extension of several contracts and interfaces, designed to manage ownership, voting, and token interaction.
@@ -685,17 +687,19 @@ contract AnhydriteProxyOwners
     // Event emitted when an owner voluntarily exits.
     event VoluntarilyExit(address indexed votingSubject, uint returnTokens);
     // Event emitted when Anhydrite tokens are deposited.
-    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
+    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount, bool owner);
+    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
+    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
     
     // Constructor initializes basic contract variables.
     constructor() {
+        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
         _implementAGE = address(0);
         _owners[msg.sender] = true;
         _totalOwners++;
         _tokensNeededForOwnership = 100000 * 10 **18;
-        IERC1820Registry iERC1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
-        iERC1820Registry.setInterfaceImplementer(address(this), keccak256("IProxy"), address(this));
+        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
+            address(this), keccak256("IERC20Receiver"), address(this));
     }
 
     // Allows an owner to voluntarily exit and withdraw their tokens.
@@ -759,11 +763,14 @@ contract AnhydriteProxyOwners
         bytes4 fakeID = bytes4(keccak256("anything_else"));
         bytes4 validID = this.onERC20Received.selector;
         bytes4 returnValue = fakeID;  // Default value
-        if (Address.isContract(msg.sender)) {
+        if (msg.sender.code.length > 0) {
             if (msg.sender == address(ANHYDRITE)) {
                 if (_owners[_who]) {
                     _balanceOwner[_who] += _amount;
-                    emit DepositAnhydrite(_from, _who, _amount);
+                    emit DepositAnhydrite(_from, _who, _amount, true);
+                    returnValue = validID;
+                } else {
+                    emit DepositAnhydrite(_from, _who, _amount, false);
                     returnValue = validID;
                 }
             } else {
@@ -783,15 +790,10 @@ contract AnhydriteProxyOwners
 
 // Interface to ensure that the global contract follows certain standards.
 interface IAGE {
-    // Gets the version of the global contract.
-    function getVersion() external pure returns (uint256);
-    // Adds a price.
-    function addPrice(string memory name, uint256 count) external;
-    // Gets a price.
+    function VERSION() external pure returns (uint256);
+    function setPrice(string memory name, uint256 count) external;
     function getPrice(string memory name) external view returns (uint256);
-    // Gets the server address from a token ID.
     function getServerFromTokenId(uint256 tokenId) external view returns (address);
-    // Gets a token ID from a server address.
     function getTokenIdFromServer(address serverAddress) external view returns (uint256);
 }
 

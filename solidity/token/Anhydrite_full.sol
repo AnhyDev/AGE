@@ -28,12 +28,46 @@
  */
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ */
+abstract contract Ownable {
+    address internal _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _transferOwnership(msg.sender);
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}
 
 /*
  * A smart contract serving as a utility layer for voting and ownership management.
@@ -132,7 +166,7 @@ abstract contract UtilityVotingAndOwnable is Ownable {
     // Checks whether the address is a contract that implements the IProxy interface
     function _checkIProxyContract(address contractAddress) internal view returns (bool) {
 
-        if (Address.isContract(contractAddress)) {
+        if (contractAddress.code.length > 0) {
             IERC165 targetContract = IERC165(contractAddress);
             return targetContract.supportsInterface(type(IProxy).interfaceId);
         }
@@ -156,11 +190,11 @@ abstract contract UtilityVotingAndOwnable is Ownable {
     }
 
     // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
-    modifier onlyProxyOwner() {
+    modifier onlyOwner() {
         if (address(_proxyContract) != address(0) && _proxyContract.getTotalOwners() > 0) {
             require(_isProxyOwner(msg.sender), "UtilityVotingAndOwnable: caller is not the proxy owner");
         } else {
-            _checkOwner();
+            require(_owner == msg.sender, "Ownable: caller is not the owner");
         }
         _;
     }
@@ -176,11 +210,38 @@ abstract contract UtilityVotingAndOwnable is Ownable {
         require(!_hasOwnerVoted(result, msg.sender), "UtilityVotingAndOwnable: Already voted");
         _;
     }
+}
+// IProxy interface defines the methods a Proxy contract should implement.
+interface IProxy {
+    // Returns the core ERC20 token of the project
+    function getCoreToken() external view returns (IERC20);
 
-    // This override function and is deactivated
-    function renounceOwnership() public view override onlyOwner {
-        revert("UtilityVotingAndOwnable: this function is deactivated");
-    }
+    // Returns the address of the current implementation (logic contract)
+    function implementation() external view returns (address);
+
+    // Returns the number of tokens needed to become an owner
+    function getTokensNeededForOwnership() external view returns (uint256);
+
+    // Returns the total number of owners
+    function getTotalOwners() external view returns (uint256);
+
+    // Checks if an address is a proxy owner (has voting rights)
+    function isProxyOwner(address tokenAddress) external view returns (bool);
+
+    // Checks if an address is an owner
+    function isOwner(address account) external view returns (bool);
+
+    // Returns the balance of an owner
+    function getBalanceOwner(address owner) external view returns (uint256);
+
+    // Checks if an address is blacklisted
+    function isBlacklisted(address account) external view returns (bool);
+
+    // Checks if the contract is stopped
+    function isStopped() external view returns (bool);
+    
+    // Increases interest for voting participants
+    function increase(address[] memory addresses) external;
 }
 
 /*
@@ -191,30 +252,44 @@ abstract contract UtilityVotingAndOwnable is Ownable {
  * 3. Transfer of ERC721 tokens (NFTs) to the designated address.
  * All financial operations are restricted to the contract owner.
  */
-
 abstract contract FinanceManager is UtilityVotingAndOwnable {
 
-   // Function for transferring BNB
-    function withdrawMoney(uint256 amount) external onlyProxyOwner {
+    /**
+     * @dev Withdraws BNB from the contract to a designated address.
+     * @param amount Amount of BNB to withdraw.
+     */
+    function withdrawMoney(uint256 amount) external onlyOwner {
         address payable recipient = payable(_recepient());
         require(address(this).balance >= amount, "FinanceManager: Contract has insufficient balance");
         recipient.transfer(amount);
     }
 
-    // Function for transferring ERC20 tokens
-    function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyProxyOwner {
+    /**
+     * @dev Withdraws ERC20 tokens from the contract.
+     * @param _tokenAddress The address of the ERC20 token contract.
+     * @param _amount The amount of tokens to withdraw.
+     */
+    function withdrawERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
         require(token.balanceOf(address(this)) >= _amount, "FinanceManager: Not enough tokens on contract balance");
         token.transfer(_recepient(), _amount);
     }
 
-    // Function for transferring ERC721 tokens
-    function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyProxyOwner {
+    /**
+     * @dev Transfers an ERC721 token from this contract.
+     * @param _tokenAddress The address of the ERC721 token contract.
+     * @param _tokenId The ID of the token to transfer.
+     */
+    function withdrawERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
         IERC721 token = IERC721(_tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "FinanceManager: The contract is not the owner of this token");
         token.safeTransferFrom(address(this), _recepient(), _tokenId);
     }
 
+    /**
+     * @dev Internal function to get the recipient address for withdrawals.
+     * @return The address to which assets should be withdrawn.
+     */
     function _recepient() internal view returns (address) {
         address recepient = owner();
         if (address(_proxyContract) != address(0)) {
@@ -254,7 +329,7 @@ abstract contract TokenManager is UtilityVotingAndOwnable {
 
 
     // Voting start initiation, parameters: recipient, amount
-    function initiateTransfer(address recepient, uint256 amount) public onlyProxyOwner {
+    function initiateTransfer(address recepient, uint256 amount) public onlyOwner {
         require(amount != 0, "TokenManager: Incorrect amount");
         require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
         if (address(_proxyContract) != address(0)) {
@@ -268,7 +343,7 @@ abstract contract TokenManager is UtilityVotingAndOwnable {
     }
 
     // Vote
-    function voteForTransfer(bool vote) external onlyProxyOwner {
+    function voteForTransfer(bool vote) external onlyOwner {
         _voteForTransfer(vote);
     }
 
@@ -343,7 +418,7 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
 
 
     // Voting start initiation, parameters: proposedNewProxy
-    function initiateNewProxy(address proposedNewProxy) public onlyProxyOwner {
+    function initiateNewProxy(address proposedNewProxy) public onlyOwner {
         require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
         require(_checkIProxyContract(proposedNewProxy), "ProxyManager: This address does not represent a contract that implements the IProxy interface.");
 
@@ -353,7 +428,7 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
     }
 
     // Vote
-    function voteForNewProxy(bool vote) external onlyProxyOwner {
+    function voteForNewProxy(bool vote) external onlyOwner {
         _voteForNewProxy(vote);
     }
 
@@ -429,7 +504,7 @@ abstract contract OwnableManager is UtilityVotingAndOwnable {
 
 
     // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
-    function transferOwnership(address proposedOwner) public override virtual onlyProxyOwner {
+    function transferOwnership(address proposedOwner) public onlyOwner {
         require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
         if (address(_proxyContract) != address(0)) {
             require(!_proxyContract.isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
@@ -442,7 +517,7 @@ abstract contract OwnableManager is UtilityVotingAndOwnable {
     }
 
     // Vote For New Owner
-    function voteForNewOwner(bool vote) external onlyProxyOwner {
+    function voteForNewOwner(bool vote) external onlyOwner {
         _voteForNewOwner(vote);
     }
 
@@ -519,17 +594,21 @@ abstract contract WhiteListManager is UtilityVotingAndOwnable {
 
 
     // Voting start initiation, parameters: proposedNewProxy
-    function initiateAllowContract(address proposedContract) public onlyProxyOwner {
+    function initiateAllowContract(address proposedContract) public onlyOwner {
         require(!_isActiveForVoteAllowContract(), "WhiteListManager: voting is already activated");
-        require(IERC165(proposedContract).supportsInterface(type(IERC20Receiver).interfaceId), "WhiteListManager: This address does not represent a contract that implements the IANHReceiver interface.");
+        require(_or1820RegistryReturnIERC20Received(proposedContract) ||
+            IERC165(proposedContract).supportsInterface(type(IERC20Receiver).interfaceId), 
+            "WhiteListManager: This address does not represent a contract that implements the IANHReceiver interface.");
 
         _proposedContract = proposedContract;
         _votesForAllowContract = VoteResult(new address[](0), new address[](0), block.timestamp);
         _voteForAllowContract(true);
     }
 
+    function _or1820RegistryReturnIERC20Received(address contractAddress) internal view virtual returns (bool);
+
     // Vote
-    function voteForAllowContract(bool vote) external onlyProxyOwner {
+    function voteForAllowContract(bool vote) external onlyOwner {
         _voteForAllowContract(vote);
     }
 
@@ -581,21 +660,30 @@ abstract contract WhiteListManager is UtilityVotingAndOwnable {
     }
 }
 
+abstract contract ERC165 is IERC165 {
+
+    mapping(bytes4 => bool) internal supportedInterfaces;
+
+    constructor() {
+        supportedInterfaces[0x01ffc9a7] = true;
+    }
+
+    // Realization ERC165
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        return supportedInterfaces[interfaceId];
+    }
+}
+
 /*
- * IANHReceiver Interface:
+ * IERC20Receiver Interface:
  * - Purpose: To handle the receiving of ERC-20 tokens from another smart contract.
  * - Key Method: 
  *   - `onERC20Received`: This is called when tokens are transferred to a smart contract implementing this interface.
  *                        It allows for custom logic upon receiving tokens.
  */
-
-// Interface for contracts that are capable of receiving ERC20 (ANH) tokens.
 interface IERC20Receiver {
     // Function that is triggered when ERC20 (ANH) tokens are received.
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
-
-    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
-    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
 }
 
 /*
@@ -619,25 +707,28 @@ interface IERC20Receiver {
  *   - ReturnOfThisToken: Logs when tokens are received from this contract itself.
  * 
  */
-abstract contract ERC20Receiver is IERC20Receiver, ERC20 {
+abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
 
     // The magic identifier for the ability in the external contract to cancel the token acquisition transaction
     bytes4 internal ERC20ReceivedMagic;
 
     IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
-    // Confirm receipt and handling of Anhydrite tokens by external IERC20Receiver contract
-    event TokensReceivedProcessed(address indexed from, address indexed who, address indexed receiver, uint256 amount);
+    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
+    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
     // An event to log the return of Anhydrite tokens to this smart contract
-    event ReturnOfThisToken(address indexed from, address indexed who, address indexed thisToken, uint256 amount);
-    // An event about an exception that occurred during the execution of an external contract
+    event ReturnOfMainToken(address indexed from, address indexed who, address indexed thisToken, uint256 amount);
+    // An event about an exception that occurred during the execution of an external contract 
     event ExceptionInfo(address indexed to, string exception);
 
 
     constructor() {
+        supportedInterfaces[type(IERC20).interfaceId] = true;
+        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
+
         ERC20ReceivedMagic = IERC20Receiver(address(this)).onERC20Received.selector;
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
-        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC20"), address(this));
     }
 
     /*
@@ -656,7 +747,7 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20 {
      *   - The function returns a "magic" identifier (bytes4) that confirms the execution of the onERC20Received function.
      *
      * - Events:
-     *   - ReturnOfAnhydrite: Emitted when tokens are received from this contract itself.
+     *   - ReturnOfMainToken: Emitted when tokens are received from this contract itself.
      *   - DepositERC20: Emitted when other tokens of the EPC-20 standard are received
      */
     function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
@@ -665,7 +756,7 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20 {
         bytes4 returnValue = fakeID;  // Default value
         if (msg.sender.code.length > 0) {
             if (msg.sender == address(this)) {
-                emit ReturnOfThisToken(_from, _who, address(this), _amount);
+                emit ReturnOfMainToken(_from, _who, address(this), _amount);
                 returnValue = validID;
             } else {
                 try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
@@ -703,30 +794,51 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20 {
      *   - AnhydriteTokensReceivedProcessed: Triggered to indicate whether the tokens were successfully processed by the receiving contract.
      *   - ExceptionInfo: Triggered when an exception occurs in the receiving contract's `onERC20Received` method, logging the reason for failure.
      */
-    function _onERC20Received(address _from, address _to, uint256 _amount) internal {
-	    if (_to.code.length > 0) {
-            if (_checkWhitelist(msg.sender)) {
+    function _onERC20Received(address _from, address _to, uint256 _amount) private {
+        if (_to.code.length > 0) {
+            if (_checkWhitelist(_to)) {
 	            bytes4 retval = IERC20Receiver(_to).onERC20Received(_from, msg.sender, _amount);
-                if (retval != ERC20ReceivedMagic) {
-                    revert ("ERC20Receiver: An invalid magic ID was returned");
-                }
-                emit TokensReceivedProcessed(_from, msg.sender, _to, _amount);
-            } else if (erc1820Registry.getInterfaceImplementer(msg.sender, keccak256("IERC20Receiver")) == msg.sender) {
-	            try IERC20Receiver(_to).onERC20Received(_from, msg.sender, _amount) returns (bytes4 retval) {
-	                require(retval == ERC20ReceivedMagic, "ERC20Receiver: An invalid magic ID was returned");
-                    emit TokensReceivedProcessed(_from, msg.sender, _to, _amount);
-	            } catch Error(string memory reason) {
-                    emit ExceptionInfo(_to, reason);
-	            } catch (bytes memory lowLevelData) {
-                    string memory infoError = "Another error";
-                    if (lowLevelData.length > 0) {
-                        infoError = string(lowLevelData);
-                    }
-                    emit ExceptionInfo(_to, infoError);
-	            }
+                require(retval == ERC20ReceivedMagic, "ERC20Receiver: An invalid magic ID was returned");
+            } else if (_or1820RegistryReturnIERC20Received(_to)) {
+	            _difficultChallenge(_from, _to, _amount);
             }
-	    }
+        }
 	}
+
+    function _difficultChallenge(address _from, address _to, uint256 _amount) private {
+        bytes4 retval;
+        bool callSuccess;
+        try IERC20Receiver(_to).onERC20Received(_from, msg.sender, _amount) returns (bytes4 _retval) {
+	        retval = _retval;
+            callSuccess = true;
+	    } catch Error(string memory reason) {
+            emit ExceptionInfo(_to, reason);
+	    } catch (bytes memory lowLevelData) {
+            string memory infoError = "Another error";
+            if (lowLevelData.length > 0) {
+                infoError = string(lowLevelData);
+            }
+            emit ExceptionInfo(_to, infoError);
+	    }
+        if (callSuccess) {
+            require(retval == ERC20ReceivedMagic, "ERC20Receiver: An invalid magic ID was returned");
+        }
+    }
+
+    function _or1820RegistryReturnIERC20Received(address contractAddress) internal view virtual returns (bool) {
+        return erc1820Registry.getInterfaceImplementer(contractAddress, keccak256("IERC20Receiver")) == contractAddress;
+    }
+
+    function or1820RegistryReturnsIERC20Received(address contractAddress) external view returns (bool) {
+        return _or1820RegistryReturnIERC20Received(contractAddress);
+    }
+
+    function checkERC20Received(address contractAddress) external view returns (string memory, string memory) {
+        string memory checkWhiteList = _checkWhitelist(contractAddress) ? "WhiteList" : "false";
+        string memory check1820Registry = erc1820Registry.getInterfaceImplementer(
+            contractAddress, keccak256("IERC20Receiver")) == contractAddress ? "1820Registry" : "false";
+        return (checkWhiteList, check1820Registry);
+    }
 
     /*
      * Overridden Function: _afterTokenTransfer
@@ -764,8 +876,7 @@ interface IERC1820Registry {
  *   - `_mint`: Enforces the max supply limit when minting tokens.
  */
 
-contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager, WhiteListManager, ERC20Receiver, ERC20Burnable {
-    using ERC165Checker for address;
+contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager, OwnableManager, WhiteListManager {
 
     // Sets the maximum allowed supply of tokens is 360 million
     uint256 private constant MAX_SUPPLY = 360000000 * 10 ** 18;
@@ -813,45 +924,8 @@ contract Anhydrite is FinanceManager, TokenManager, ProxyManager, OwnableManager
         super._mint(account, amount);
     }
 
-    // Setting which smart contract overrides the transferOwnership function
-    function transferOwnership(address proposedOwner) public override (Ownable, OwnableManager) {
-        OwnableManager.transferOwnership(proposedOwner);
+    function _or1820RegistryReturnIERC20Received(address contractAddress) internal override(WhiteListManager, ERC20Receiver) 
+      view returns (bool) {
+        return ERC20Receiver._or1820RegistryReturnIERC20Received(contractAddress);
     }
-    
-    function _afterTokenTransfer(address from, address to, uint256 amount) internal override(ERC20, ERC20Receiver) {
-        super._afterTokenTransfer(from, to, amount);
-    }
-}
-
-// IProxy interface defines the methods a Proxy contract should implement.
-interface IProxy {
-    // Returns the core ERC20 token of the project
-    function getCoreToken() external view returns (IERC20);
-
-    // Returns the address of the current implementation (logic contract)
-    function implementation() external view returns (address);
-
-    // Returns the number of tokens needed to become an owner
-    function getTokensNeededForOwnership() external view returns (uint256);
-
-    // Returns the total number of owners
-    function getTotalOwners() external view returns (uint256);
-
-    // Checks if an address is a proxy owner (has voting rights)
-    function isProxyOwner(address tokenAddress) external view returns (bool);
-
-    // Checks if an address is an owner
-    function isOwner(address account) external view returns (bool);
-
-    // Returns the balance of an owner
-    function getBalanceOwner(address owner) external view returns (uint256);
-
-    // Checks if an address is blacklisted
-    function isBlacklisted(address account) external view returns (bool);
-
-    // Checks if the contract is stopped
-    function isStopped() external view returns (bool);
-    
-    // Increases interest for voting participants
-    function increase(address[] memory addresses) external;
 }

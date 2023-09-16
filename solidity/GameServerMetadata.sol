@@ -49,7 +49,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 abstract contract BaseUtil is Ownable {
     
     // Main project token (ANH) address
-    IANH public constant ANHYDRITE = IANH(0x30cbF6931D7Ae248bf1D06e60931CE95096d4Aa0);
+    IANH public constant ANHYDRITE = IANH(0x9a9a0EB311E937C7D75d3468C8b0135d4976DAa7);
 
     // Returns the proxy contract address from the Anhydrite contract.
     function _getProxyAddress() internal view returns (address) {
@@ -105,33 +105,62 @@ interface IProxy {
  */
 abstract contract FinanceManager is BaseUtil {
 
-   // Function for transferring BNB
+    /**
+     * @dev Withdraws BNB from the contract to a designated address.
+     * @param amount Amount of BNB to withdraw.
+     */
     function withdrawMoney(uint256 amount) external onlyProxyOwner {
         address payable recipient = payable(_recepient());
         require(address(this).balance >= amount, "FinanceManager: Contract has insufficient balance");
         recipient.transfer(amount);
     }
 
-    // Function for transferring ERC20 tokens
-    function withdraERC20Tokens(address _tokenAddress, uint256 _amount) external onlyProxyOwner {
+    /**
+     * @dev Withdraws ERC20 tokens from the contract.
+     * @param _tokenAddress The address of the ERC20 token contract.
+     * @param _amount The amount of tokens to withdraw.
+     */
+    function withdrawERC20Tokens(address _tokenAddress, uint256 _amount) external onlyProxyOwner {
         IERC20 token = IERC20(_tokenAddress);
         require(token.balanceOf(address(this)) >= _amount, "FinanceManager: Not enough tokens on contract balance");
         token.transfer(_recepient(), _amount);
     }
 
-    // Function for transferring ERC721 tokens
-    function withdraERC721Token(address _tokenAddress, uint256 _tokenId) external onlyProxyOwner {
+    /**
+     * @dev Transfers an ERC721 token from this contract.
+     * @param _tokenAddress The address of the ERC721 token contract.
+     * @param _tokenId The ID of the token to transfer.
+     */
+    function withdrawERC721Token(address _tokenAddress, uint256 _tokenId) external onlyProxyOwner {
         IERC721 token = IERC721(_tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "FinanceManager: The contract is not the owner of this token");
         token.safeTransferFrom(address(this), _recepient(), _tokenId);
     }
 
+    /**
+     * @dev Internal function to get the recipient address for withdrawals.
+     * @return The address to which assets should be withdrawn.
+     */
     function _recepient() internal view returns (address) {
         address recepient = address(ANHYDRITE);
         if (address(_proxyContract()) != address(0)) {
             recepient = _proxyContract().implementation();
         }
         return recepient;
+    }
+}
+
+abstract contract ERC165 is IERC165 {
+
+    mapping(bytes4 => bool) internal supportedInterfaces;
+
+    constructor() {
+        supportedInterfaces[0x01ffc9a7] = true;
+    }
+
+    // Realization ERC165
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        return supportedInterfaces[interfaceId];
     }
 }
 
@@ -160,10 +189,16 @@ interface IERC20Receiver {
  * - getGameName: Returns the name of a game based on its ID.
  * - addServerData: Allows the contract owner and/or the proxy contract owners to add new gaming server data.
  */
-contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver {
+contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 {
 
     // A constant that represents the end of the games list.
     uint256 public constant END_OF_LIST = 1000;
+
+    // A structure for storing the id and name of the game
+    struct GameInfo {
+        uint256 gameId;
+        string gameName;
+    }
 
     // A mapping from uint256-based game IDs to an array containing the game's name, contract name, and contract symbol.
     mapping(uint256 => string[]) internal _gamesData;
@@ -173,6 +208,8 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver {
 
 
     constructor () {
+        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
+
         // Initializes the _gamesData mapping with predefined gaming server data.
         _gamesData[0] = [   "Minecraft",               "Anhydrite Minecraft server contract",              "AGE_MC"    ];
         _gamesData[1] = [   "GTA",                     "Grand Theft Auto server contract",                 "AGE_GTA"   ];
@@ -182,7 +219,8 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver {
         _gamesData[5] = [   "Counter Strike",          "Counter-Strike server contract",                   "AGE_CS"    ];
         _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "Anhydrite server module ",                         "AGE_"      ];
 
-        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
+        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
+            address(this), keccak256("IERC20Receiver"), address(this));
     }
     
     /**
@@ -226,6 +264,7 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver {
      * @param contractSymbol The symbol of the contract related to the game.
      */
     function addServerData(uint256 gameId, string memory gameName, string memory contractName, string memory contractSymbol) public onlyOwner onlyProxyOwner {
+        require(gameId < END_OF_LIST, "GameServerMetadata: gameId must be less than 1000");
         if (_gamesData[gameId].length == 0) {
             _gamesData[gameId].push(gameName);
             _gamesData[gameId].push(contractName);
@@ -233,6 +272,31 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver {
         } else {
             revert("GameServerMetadata: It is not possible to change the existing position");
         }
+    }
+
+    /**
+     * @dev Function to retrieve non-empty game data from the _gamesData mapping.
+     * @return An array of GameInfo structures containing the id and name of the game for non-empty entries.
+     */
+    function getAllGames() external view returns (GameInfo[] memory) {
+        // We initialize a dynamic array for storing results
+        GameInfo[] memory nonEmptyGames = new GameInfo[](1000);  
+        uint256 count = 0; // A counter for tracking the number of non-empty records
+
+        // We go through the _gamesData mapping
+        for (uint256 i = 0; i <= 999; i++) { 
+            if (_gamesData[i].length != 0) {
+                // We add a non-empty record to the result
+                nonEmptyGames[count] = GameInfo(i, _gamesData[i][0]);
+                count++;
+            }
+        }
+        // We reduce the size of the array to the actual number of non-empty records
+        GameInfo[] memory results = new GameInfo[](count);
+        for (uint256 j = 0; j < count; j++) {
+            results[j] = nonEmptyGames[j];
+        }
+        return results;
     }
 
     /**
@@ -267,5 +331,4 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver {
 // Interface for interacting with the ERC1820Registry contract.
 interface IERC1820Registry {
     function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
-    function getInterfaceImplementer(address account, bytes32 interfaceHash) external view returns (address);
 }
