@@ -68,8 +68,7 @@ abstract contract BaseUtil is Ownable {
 
     // Restricts function execution to the proxy contract owners or to the contract owner if the proxy is not set.
     modifier onlyProxyOwner() {
-        IProxy proxy = _proxyContract();
-        if (address(proxy) != address(0) && proxy.getTotalOwners() > 0) {
+        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
             require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxy owner");
         } else {
             _checkOwner();
@@ -193,6 +192,7 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 
 
     // A constant that represents the end of the games list.
     uint256 public constant END_OF_LIST = 1000;
+    bytes32 private constant STR_END_OF_LIST = keccak256(bytes("END_OF_LIST"));
 
     // A structure for storing the id and name of the game
     struct GameInfo {
@@ -297,6 +297,26 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 
             results[j] = nonEmptyGames[j];
         }
         return results;
+    }
+    
+    /**
+     * @dev Checks if the game associated with the given gameId has a non-empty name.
+     * Returns the gameId if the name is not empty and the game data array exists.
+     * Returns END_OF_LIST if the game data array is empty or if the gameName is "END_OF_LIST".
+     * 
+     * @param gameId The ID of the game to check.
+     * @return The gameId if gameName is not empty, otherwise returns END_OF_LIST.
+     */
+    function checkGameIdNotEmpty(uint256 gameId) external view returns (uint256) {
+        // Retrieve the array of strings associated with the given gameId.
+        string[] memory gameData = _gamesData[gameId];
+
+        // If the array is empty, or the gameName is "END_OF_LIST", return END_OF_LIST
+        if (gameData.length == 0 || keccak256(bytes(gameData[0])) == STR_END_OF_LIST) {
+            return END_OF_LIST;
+        }
+        // Otherwise, return the gameId.
+        return gameId;
     }
 
     /**

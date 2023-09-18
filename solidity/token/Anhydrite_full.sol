@@ -32,185 +32,63 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
+ * @title BaseUtility Abstract Contract
+ * @dev This abstract contract provides base functionalities for interacting with a proxy contract.
+ *      It includes helper methods for setting, querying, and interacting with the proxy contract.
+ * 
+ *      The '_proxy' state variable stores the Ethereum address of the proxy contract that adheres to the IProxy interface.
+ * 
+ *      Functions include:
+ *      - getProxyAddress: To publicly get the Ethereum address of the proxy contract.
+ *      - _setProxyContract: To set or update the proxy contract address.
+ *      - _proxyContract: To get the current proxy contract address.
+ *      - _isProxyOwner: To check if an address is an owner of the proxy contract.
+ *      - _checkIProxyContract: To validate if an address is a smart contract that implements the IProxy interface.
  */
-abstract contract Ownable {
-    address internal _owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
-    constructor() {
-        _transferOwnership(msg.sender);
-    }
-
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view virtual returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Internal function without access restriction.
-     */
-    function _transferOwnership(address newOwner) internal virtual {
-        address oldOwner = _owner;
-        _owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-}
-
-/*
- * A smart contract serving as a utility layer for voting and ownership management.
- * It extends OpenZeppelin's Ownable contract and interfaces with an external Proxy contract.
- * The contract provides:
- * 1. Vote management with upvotes and downvotes, along with vote expiration checks.
- * 2. Owner checks that allow both the contract owner and proxy contract owners to execute privileged operations.
- * 3. Interface compatibility checks for connected proxy contracts.
- * 4. Renunciation of ownership is explicitly disabled.
- */
-abstract contract UtilityVotingAndOwnable is Ownable {
+abstract contract BaseUtility {
     
     // Proxy contract interface
-    IProxy internal _proxyContract;
+    IProxy private _proxy;
 
-
-    // Returns the interface address of the proxy contract
+    // Returns the Ethereum address of the proxy contract.
     function getProxyAddress() public view returns (address) {
-        return address(_proxyContract);
+        return address(_proxy);
     }
 
-    // Checks whether the address is among the owners of the proxy contract
+    /*
+     * Internal function to update the proxy contract address.
+     * This function is used to set a new address for the proxy contract and 
+     * it takes the new address as an argument. It assumes the address adheres to the IProxy interface.
+     * The internal state variable '_proxy' is then updated with this new address.
+     */
+    function _setProxyContract(address newProxy) internal {
+        _proxy = IProxy(newProxy);
+    }
+
+    /*
+     * Internal view function to get the current proxy contract address.
+     * This function returns the current address stored in the '_proxy' state variable.
+     * This is a 'view' function, meaning it doesn't modify the state and is free to call.
+     */
+    function _proxyContract() internal view returns (IProxy) {
+        return _proxy;
+    }
+
+    // Checks if an address is an owner of the proxy contract, as per the proxy contract's own rules.
     function _isProxyOwner(address senderAddress) internal view returns (bool) {
-        return _proxyContract.isProxyOwner(senderAddress);
+        return _proxyContract().isProxyOwner(senderAddress);
     }
 
-    // Voting structure
-    struct VoteResult {
-        address[] isTrue;
-        address[] isFalse;
-        uint256 timestamp;
-    }
-
-    function _increaseArrays(VoteResult memory result) internal {
-        if (address(_proxyContract) != address(0)) {
-            address[] memory isTrue = result.isTrue;
-            address[] memory isFalse = result.isFalse;
-
-            uint256 length1 = isTrue.length;
-            uint256 length2 = isFalse.length;
-            uint256 totalLength = length1 + length2;
-
-            address[] memory merged = new address[](totalLength);
-            for (uint256 i = 0; i < length1; i++) {
-                merged[i] = isTrue[i];
-            }
-
-            for (uint256 j = 0; j < length2; j++) {
-                merged[length1 + j] = isFalse[j];
-            }
-
-            _increase(merged);
-        }
-    }
-
-    function _increase(address[] memory owners) internal {
-        _proxyContract.increase(owners);
-    }
-
-    // Adds the voter's address to the corresponding list and also returns the total number of votes, upvotes and downvotes
-    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
-        uint256 _totalOwners = 1;
-        if (address(_proxyContract) != address(0)) {
-            _totalOwners = _proxyContract.getTotalOwners();
-        } 
-        if (vote) {
-            result.isTrue.push(msg.sender);
-        } else {
-            result.isFalse.push(msg.sender);
-        }
-        return (result.isTrue.length, result.isFalse.length, _totalOwners);
-    }
-
-    // Clears structure after voting
-    function _resetVote(VoteResult storage vote) internal {
-        vote.isTrue = new address[](0);
-        vote.isFalse = new address[](0);
-        vote.timestamp = 0;
-    }
-    
-    function _completionVoting(VoteResult storage result) internal {
-        _increaseArrays(result);
-        _resetVote(result);
-    }
-
-    // Calls the poll structure cleanup function if 3 or more days have passed since it started
-    function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
-        if (address(_proxyContract) != address(0)) {
-            address[] memory newArray = new address[](1);
-            newArray[0] = msg.sender;
-            _increase(newArray);
-        }
-        _resetVote(vote);
-    }
-
-    // Checks whether the address is a contract that implements the IProxy interface
+    // Checks if an address is a smart contract that implements the IProxy interface.
     function _checkIProxyContract(address contractAddress) internal view returns (bool) {
-
         if (contractAddress.code.length > 0) {
             IERC165 targetContract = IERC165(contractAddress);
             return targetContract.supportsInterface(type(IProxy).interfaceId);
         }
-
         return false;
-    }
-    
-    // Checks whether the address has voted
-    function _hasOwnerVoted(VoteResult memory result, address targetAddress) internal pure returns (bool) {
-        for (uint256 i = 0; i < result.isTrue.length; i++) {
-            if (result.isTrue[i] == targetAddress) {
-                return true;
-            }
-        }
-        for (uint256 i = 0; i < result.isFalse.length; i++) {
-            if (result.isFalse[i] == targetAddress) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
-    modifier onlyOwner() {
-        if (address(_proxyContract) != address(0) && _proxyContract.getTotalOwners() > 0) {
-            require(_isProxyOwner(msg.sender), "UtilityVotingAndOwnable: caller is not the proxy owner");
-        } else {
-            require(_owner == msg.sender, "Ownable: caller is not the owner");
-        }
-        _;
-    }
-
-    // Modifier for checking whether 3 days have passed since the start of voting and whether it can be closed
-    modifier canClose(uint256 timestamp) {
-        require(block.timestamp >= timestamp + 3 days, "UtilityVotingAndOwnable: Voting is still open");
-        _;
-    }
-
-    // A modifier that returns true if the given address has not yet been voted
-    modifier hasNotVoted(VoteResult memory result) {
-        require(!_hasOwnerVoted(result, msg.sender), "UtilityVotingAndOwnable: Already voted");
-        _;
     }
 }
+
 // IProxy interface defines the methods a Proxy contract should implement.
 interface IProxy {
     // Returns the core ERC20 token of the project
@@ -244,6 +122,188 @@ interface IProxy {
     function increase(address[] memory addresses) external;
 }
 
+
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ */
+abstract contract Ownable is BaseUtility {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _transferOwnership(msg.sender);
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
+    modifier onlyOwner() {
+        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
+            require(_isProxyOwner(msg.sender), "Ownable: caller is not the proxy owner");
+        } else {
+            require(_owner == msg.sender, "Ownable: caller is not the owner");
+        }
+        _;
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}
+
+
+/*
+ * A smart contract serving as a utility layer for voting and ownership management.
+ * It extends Ownable contract and interfaces with an external Proxy contract.
+ * The contract provides:
+ * 1. Vote management with upvotes and downvotes, along with vote expiration checks.
+ * 2. Owner checks that allow both the contract owner and proxy contract owners to execute privileged operations.
+ * 3. Interface compatibility checks for connected proxy contracts.
+ * 4. Renunciation of ownership is explicitly disabled.
+ */
+abstract contract VoteUtility is Ownable {
+
+    // Voting structure
+    struct VoteResult {
+        address[] isTrue;
+        address[] isFalse;
+        uint256 timestamp;
+    }
+
+    // Internal function to increases interest for VoteResult participants
+    function _increaseArrays(VoteResult memory result) internal {
+        address[] memory isTrue = result.isTrue;
+        address[] memory isFalse = result.isFalse;
+
+        uint256 length1 = isTrue.length;
+        uint256 length2 = isFalse.length;
+        uint256 totalLength = length1 + length2;
+
+        address[] memory merged = new address[](totalLength);
+        for (uint256 i = 0; i < length1; i++) {
+            merged[i] = isTrue[i];
+        }
+
+        for (uint256 j = 0; j < length2; j++) {
+            merged[length1 + j] = isFalse[j];
+        }
+
+        _increase(merged);
+    }
+
+    // Calls the 'increase' method on the proxy contract to handle voting participants
+    function _increase(address[] memory owners) internal {
+        if (address(_proxyContract()) != address(0)) {
+            _proxyContract().increase(owners);
+        }
+    }
+
+    /*
+     * Internal Function: _votes
+     * - Purpose: Records a vote for a given voting result and returns vote counts.
+     * - Arguments:
+     *   - result: The voting result to update.
+     *   - vote: Boolean representing the vote (true for upvote, false for downvote).
+     * - Returns:
+     *   - Number of upvotes.
+     *   - Number of downvotes.
+     *   - Total number of owners.
+     */
+    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
+        uint256 _totalOwners = 1;
+        if (address(_proxyContract()) != address(0)) {
+            _totalOwners = _proxyContract().getTotalOwners();
+        } 
+        if (vote) {
+            result.isTrue.push(msg.sender);
+        } else {
+            result.isFalse.push(msg.sender);
+        }
+        return (result.isTrue.length, result.isFalse.length, _totalOwners);
+    }
+
+    // Internal function to reset the voting result to its initial state
+    function _resetVote(VoteResult storage vote) internal {
+        vote.isTrue = new address[](0);
+        vote.isFalse = new address[](0);
+        vote.timestamp = 0;
+    }
+    
+    /*
+     * Internal Function: _completionVoting
+     * - Purpose: Marks the end of a voting process by increasing vote counts and resetting the VoteResult.
+     * - Arguments:
+     *   - result: The voting result to complete.
+     */
+    function _completionVoting(VoteResult storage result) internal {
+        _increaseArrays(result);
+        _resetVote(result);
+    }
+
+    /*
+     * Internal Function: _closeVote
+     * - Purpose: Closes the voting process after a set period and resets the voting structure.
+     * - Arguments:
+     *   - vote: The voting result to close.
+     */
+    function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
+        if (address(_proxyContract()) != address(0)) {
+            address[] memory newArray = new address[](1);
+            newArray[0] = msg.sender;
+            _increase(newArray);
+        }
+        _resetVote(vote);
+    }
+    
+    // Internal function to check if an address has already voted in a given VoteResult
+    function _hasOwnerVoted(VoteResult memory result, address targetAddress) internal pure returns (bool) {
+        for (uint256 i = 0; i < result.isTrue.length; i++) {
+            if (result.isTrue[i] == targetAddress) {
+                return true;
+            }
+        }
+        for (uint256 i = 0; i < result.isFalse.length; i++) {
+            if (result.isFalse[i] == targetAddress) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Modifier to check if enough time has passed to close the voting
+    modifier canClose(uint256 timestamp) {
+        require(block.timestamp >= timestamp + 3 days, "VoteUtility: Voting is still open");
+        _;
+    }
+
+    // Modifier to ensure an address has not voted before in a given VoteResult
+    modifier hasNotVoted(VoteResult memory result) {
+        require(!_hasOwnerVoted(result, msg.sender), "VoteUtility: Already voted");
+        _;
+    }
+}
+
+
 /*
  * A smart contract that extends the UtilityVotingAndOwnable contract to provide financial management capabilities.
  * The contract allows for:
@@ -252,7 +312,7 @@ interface IProxy {
  * 3. Transfer of ERC721 tokens (NFTs) to the designated address.
  * All financial operations are restricted to the contract owner.
  */
-abstract contract FinanceManager is UtilityVotingAndOwnable {
+abstract contract FinanceManager is Ownable {
 
     /**
      * @dev Withdraws BNB from the contract to a designated address.
@@ -292,12 +352,13 @@ abstract contract FinanceManager is UtilityVotingAndOwnable {
      */
     function _recepient() internal view returns (address) {
         address recepient = owner();
-        if (address(_proxyContract) != address(0)) {
-            recepient = _proxyContract.implementation();
+        if (address(_proxyContract()) != address(0)) {
+            recepient = _proxyContract().implementation();
         }
         return recepient;
     }
 }
+
 
 /*
  * An abstract contract extending the UtilityVotingAndOwnable contract to manage token transfers based on a voting mechanism.
@@ -310,8 +371,7 @@ abstract contract FinanceManager is UtilityVotingAndOwnable {
  * 6. Events to log voting actions and outcomes.
  * 7. A virtual internal function that must be overridden to actually perform the token transfer.
  */
-
-abstract contract TokenManager is UtilityVotingAndOwnable {
+abstract contract TokenManager is VoteUtility {
 
     // Suggested recipient address
     address internal _proposedTransferRecepient;
@@ -327,13 +387,12 @@ abstract contract TokenManager is UtilityVotingAndOwnable {
     // Event to close a poll that has expired
     event CloseVoteForTransfer(address indexed decisiveVote, uint votesFor, uint votesAgainst);
 
-
     // Voting start initiation, parameters: recipient, amount
     function initiateTransfer(address recepient, uint256 amount) public onlyOwner {
         require(amount != 0, "TokenManager: Incorrect amount");
         require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
-        if (address(_proxyContract) != address(0)) {
-            require(!_proxyContract.isBlacklisted(recepient), "TokenManager: this address is blacklisted");
+        if (address(_proxyContract()) != address(0)) {
+            require(!_proxyContract().isBlacklisted(recepient), "TokenManager: this address is blacklisted");
         }
 
         _proposedTransferRecepient = recepient;
@@ -342,7 +401,7 @@ abstract contract TokenManager is UtilityVotingAndOwnable {
         _voteForTransfer(true);
     }
 
-    // Vote
+    // Vote for transfer
     function voteForTransfer(bool vote) external onlyOwner {
         _voteForTransfer(vote);
     }
@@ -390,6 +449,7 @@ abstract contract TokenManager is UtilityVotingAndOwnable {
     }
 }
 
+
 /*
  * This abstract contract extends the UtilityVotingAndOwnable contract to facilitate governance of smart contract proxies.
  * Key features include:
@@ -401,8 +461,7 @@ abstract contract TokenManager is UtilityVotingAndOwnable {
  * 6. Events to log voting actions and outcomes for transparency and auditing purposes.
  * 7. Utility functions to check the status of the active vote and the validity of the proposed proxy address.
  */
-
-abstract contract ProxyManager is UtilityVotingAndOwnable {
+abstract contract ProxyManager is VoteUtility {
 
     // A new smart contract proxy address is proposed
     address internal _proposedProxy;
@@ -416,7 +475,6 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
     // Event to close a poll that has expired
     event CloseVoteForNewProxy(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
-
     // Voting start initiation, parameters: proposedNewProxy
     function initiateNewProxy(address proposedNewProxy) public onlyOwner {
         require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
@@ -427,7 +485,7 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
         _voteForNewProxy(true);
     }
 
-    // Vote
+    // Vote to change the owner of a smart contract
     function voteForNewProxy(bool vote) external onlyOwner {
         _voteForNewProxy(vote);
     }
@@ -441,7 +499,7 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
         emit VotingForNewProxy(msg.sender, _proposedProxy, vote);
 
         if (votestrue * 100 >= _totalOwners * 70) {
-            _proxyContract = IProxy(_proposedProxy);
+            _setProxyContract(_proposedProxy);
             _completionVotingNewProxy(vote, votestrue, votesfalse);
         } else if (votesfalse * 100 > _totalOwners * 30) {
             _completionVotingNewProxy(vote, votestrue, votesfalse);
@@ -471,9 +529,10 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
 
     // Function to check if the proposed address is valid
     function _isActiveForVoteNewProxy() internal view returns (bool) {
-        return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract);
+        return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract());
     }
 }
+
 
 /*
  * This abstract contract extends the UtilityVotingAndOwnable contract to manage the ownership of the smart contract.
@@ -487,8 +546,7 @@ abstract contract ProxyManager is UtilityVotingAndOwnable {
  * 7. Utility functions to check the status of the active vote and the validity of the proposed new owner.
  * 8. Override of the standard 'transferOwnership' function to initiate the voting process, with additional checks against a blacklist and validation of the proposed owner.
  */
-
-abstract contract OwnableManager is UtilityVotingAndOwnable {
+abstract contract OwnableManager is VoteUtility {
 
     // Proposed new owner
     address internal _proposedOwner;
@@ -502,12 +560,11 @@ abstract contract OwnableManager is UtilityVotingAndOwnable {
     // Event to close a poll that has expired
     event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
-
     // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
     function transferOwnership(address proposedOwner) public onlyOwner {
         require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
-        if (address(_proxyContract) != address(0)) {
-            require(!_proxyContract.isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
+        if (address(_proxyContract()) != address(0)) {
+            require(!_proxyContract().isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
             require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
         }
 
@@ -564,6 +621,7 @@ abstract contract OwnableManager is UtilityVotingAndOwnable {
     }
 }
 
+
 /*
  * This abstract contract extends the UtilityVotingAndOwnable contract to manage a whitelist of smart contract addresses.
  * Key features include:
@@ -576,7 +634,7 @@ abstract contract OwnableManager is UtilityVotingAndOwnable {
  * 7. Utility functions to check if the proposed contract address is valid, if there's an active vote, and if an address is whitelisted.
  * 8. Checks that the proposed smart contract implements the IANHReceiver interface.
  */
-abstract contract WhiteListManager is UtilityVotingAndOwnable {
+abstract contract WhiteListManager is VoteUtility {
 
     // Whitelist
     mapping(address => bool) internal _whiteList;
@@ -591,7 +649,6 @@ abstract contract WhiteListManager is UtilityVotingAndOwnable {
     event VotingAllowContractCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
     // Event to close a poll that has expired
     event CloseVoteForAllowContract(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
-
 
     // Voting start initiation, parameters: proposedNewProxy
     function initiateAllowContract(address proposedContract) public onlyOwner {
@@ -660,15 +717,21 @@ abstract contract WhiteListManager is UtilityVotingAndOwnable {
     }
 }
 
+
+// Declares an abstract contract ERC165 that implements the IERC165 interface
 abstract contract ERC165 is IERC165 {
 
+    // Internal mapping to store supported interfaces
     mapping(bytes4 => bool) internal supportedInterfaces;
 
+    // Constructor to initialize the mapping of supported interfaces
     constructor() {
+        // 0x01ffc9a7 is the interface identifier for ERC165 according to the standard
         supportedInterfaces[0x01ffc9a7] = true;
     }
 
-    // Realization ERC165
+    // Implements the supportsInterface method from the IERC165 interface
+    // The function checks if the contract supports the given interface
     function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
         return supportedInterfaces[interfaceId];
     }
@@ -778,21 +841,17 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
 
     /*
      * Private Function: _onERC20Received
-     * - Purpose: Verifies if the receiving contract complies with the IERC20Receiver interface and triggers corresponding events.
+     * - Purpose: Handles the receipt of ERC20 tokens, checking if the receiver implements IERC20Receiver or is whitelisted.
      * - Arguments:
-     *   - _from: The origin address of the ERC-20 tokens.
-     *   - _to: The destination address of the ERC-20 tokens.
-     *   - _amount: The quantity of tokens being transferred.
+     *   - _from: The sender's address of the ERC-20 tokens.
+     *   - _to: The recipient's address of the ERC-20 tokens.
+     *   - _amount: The quantity of tokens to be transferred.
      * 
      * - Behavior:
-     *   1. Checks if `_to` is a contract address. If not, no further action is taken.
-     *   2. If `_to` is a smart contract and is whitelisted, the `onERC20Received` method of `_to` is invoked, expecting a magic value in return.
-     *   3. If `_to` is recognized as an IERC20Receiver by the ERC1820Registry, a try-catch block is used to safely call `onERC20Received` and log any exceptions.
-     *   4. If `_to` doesn't fall into any of the above categories, an event is emitted to log the tokens as unprocessed.
-     *
-     * - Events:
-     *   - AnhydriteTokensReceivedProcessed: Triggered to indicate whether the tokens were successfully processed by the receiving contract.
-     *   - ExceptionInfo: Triggered when an exception occurs in the receiving contract's `onERC20Received` method, logging the reason for failure.
+     *   1. Checks if `_to` is a contract by examining the length of its bytecode.
+     *   2. If `_to` is whitelisted, it calls the `onERC20Received` method on `_to`, requiring a magic value to be returned.
+     *   3. Alternatively, if `_to` is an IERC20Receiver according to the ERC1820 registry, it calls the `_difficultChallenge` method.
+     *   4. If none of these conditions are met, the function simply exits, effectively treating `_to` as a regular address.
      */
     function _onERC20Received(address _from, address _to, uint256 _amount) private {
         if (_to.code.length > 0) {
@@ -805,6 +864,19 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
         }
 	}
 
+    /*
+     * Internal Function: _difficultChallenge
+     * - Purpose: Calls the `onERC20Received` function of the receiving contract and logs exceptions if they occur.
+     * - Arguments:
+     *   - _from: The origin address of the ERC-20 tokens.
+     *   - _to: The destination address of the ERC-20 tokens.
+     *   - _amount: The quantity of tokens being transferred.
+     *   
+     * - Behavior:
+     *   1. A try-catch block attempts to call the `onERC20Received` function on the receiving contract `_to`.
+     *   2. If the call succeeds, the returned magic value is checked.
+     *   3. If the call fails, an exception is caught and the reason is emitted in an ExceptionInfo event.
+     */
     function _difficultChallenge(address _from, address _to, uint256 _amount) private {
         bytes4 retval;
         bool callSuccess;
@@ -825,20 +897,48 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
         }
     }
 
+    /*
+     * Internal View Function: _or1820RegistryReturnIERC20Received
+     * - Purpose: Checks if the contract at `contractAddress` implements the IERC20Receiver interface according to the ERC1820 registry.
+     * - Arguments:
+     *   - contractAddress: The address of the contract to check.
+     * 
+     * - Returns: 
+     *   - A boolean indicating whether the contract implements IERC20Receiver according to the ERC1820 registry.
+     */
     function _or1820RegistryReturnIERC20Received(address contractAddress) internal view virtual returns (bool) {
         return erc1820Registry.getInterfaceImplementer(contractAddress, keccak256("IERC20Receiver")) == contractAddress;
     }
 
+    /*
+     * Public View Function: or1820RegistryReturnsIERC20Received
+     * - Purpose: External interface for checking if a contract implements the IERC20Receiver interface via the ERC1820 registry.
+     * - Arguments:
+     *   - contractAddress: The address of the contract to check.
+     * 
+     * - Returns:
+     *   - A boolean indicating the ERC1820 compliance of the contract.
+     */
     function or1820RegistryReturnsIERC20Received(address contractAddress) external view returns (bool) {
         return _or1820RegistryReturnIERC20Received(contractAddress);
     }
 
+    /*
+     * Public View Function: checkERC20Received
+     * - Purpose: Checks and returns the whitelist and ERC1820 registry status of a contract.
+     * - Arguments:
+     *   - contractAddress: The address of the contract to check.
+     * 
+     * - Returns:
+     *   - Two strings representing the whitelist and ERC1820 status ("WhiteList"/"false" and "1820Registry"/"false").
+     */
     function checkERC20Received(address contractAddress) external view returns (string memory, string memory) {
         string memory checkWhiteList = _checkWhitelist(contractAddress) ? "WhiteList" : "false";
         string memory check1820Registry = erc1820Registry.getInterfaceImplementer(
             contractAddress, keccak256("IERC20Receiver")) == contractAddress ? "1820Registry" : "false";
         return (checkWhiteList, check1820Registry);
     }
+
 
     /*
      * Overridden Function: _afterTokenTransfer
@@ -858,10 +958,23 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
         }
     }
 }
+/*
+ * IERC1820Registry defines the interface for the ERC1820 Registry contract,
+ * which allows contracts and addresses to declare which interface they implement
+ * and which smart contract is responsible for its implementation.
+ */
 interface IERC1820Registry {
+
+    // Allows `account` to specify `implementer` as the entity that implements
+    // a particular interface identified by `interfaceHash`.
+    // This can only be called by the `account` itself.
     function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+
+    // Retrieves the address of the contract that implements a specific interface
+    // identified by `interfaceHash` for `account`.
     function getInterfaceImplementer(address account, bytes32 interfaceHash) external view returns (address);
 }
+
 
 /*
  * Anhydrite Contract:
@@ -875,7 +988,6 @@ interface IERC1820Registry {
  *   - `_transferFor`: Checks and performs token transfers, and mints new tokens if necessary, but not exceeding max supply.
  *   - `_mint`: Enforces the max supply limit when minting tokens.
  */
-
 contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager, OwnableManager, WhiteListManager {
 
     // Sets the maximum allowed supply of tokens is 360 million
@@ -894,8 +1006,8 @@ contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager,
 
     // Sending tokens on request from the smart contract proxy to its address
     function transferForProxy(uint256 amount) public {
-        require(address(_proxyContract) != address(0), "Anhydrite: The proxy contract has not yet been established");
-        address proxy = address(_proxyContract);
+        require(address(_proxyContract()) != address(0), "Anhydrite: The proxy contract has not yet been established");
+        address proxy = address(_proxyContract());
         require(msg.sender == proxy, "Anhydrite: Only a proxy smart contract can activate this feature");
         _transferFor(proxy, amount);
     }
@@ -911,6 +1023,11 @@ contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager,
         }
     }
 
+    /*
+     * Internal function to check if an address is on the whitelist.
+     * This function overrides a function defined in a parent contract (as indicated by the `override` keyword).
+     * It returns a boolean value indicating the whitelist status of the given address `checked`.
+     */
     function _checkWhitelist(address checked) internal view override returns (bool) {
         return _whiteList[checked];
     }
@@ -924,6 +1041,13 @@ contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager,
         super._mint(account, amount);
     }
 
+    /*
+     * Internal function that determines whether the given `contractAddress` should return the standard
+     * `IERC20Received` response or follow the ERC1820 registry behavior.
+     * This function overrides functions from both the `WhiteListManager` and `ERC20Receiver` parent contracts
+     * as indicated by the `override(WhiteListManager, ERC20Receiver)` keyword.
+     * It returns a boolean value that dictates the behavior for handling incoming ERC20 tokens.
+     */
     function _or1820RegistryReturnIERC20Received(address contractAddress) internal override(WhiteListManager, ERC20Receiver) 
       view returns (bool) {
         return ERC20Receiver._or1820RegistryReturnIERC20Received(contractAddress);

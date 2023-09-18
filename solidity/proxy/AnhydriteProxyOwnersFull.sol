@@ -33,56 +33,86 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-abstract contract ERC165 is IERC165 {
-
-    mapping(bytes4 => bool) internal supportedInterfaces;
-
-    constructor() {
-        supportedInterfaces[0x01ffc9a7] = true;
-    }
-
-    // Realization ERC165
-    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
-        return supportedInterfaces[interfaceId];
-    }
-}
-
-// Base contract for utility and ownership functionalities
-abstract contract BaseUtilityAndOwnable is IERC721Receiver, ERC165 {
+abstract contract BaseUtility {
 
     // Main project token (ANH) address
     IANH internal constant ANHYDRITE = IANH(0x9a9a0EB311E937C7D75d3468C8b0135d4976DAa7);
+
+    // Service status flags
+    bool internal _stopped = false;
+
     // Global contract (AGE) address
     address internal _implementAGE;
+
     // Tokens required for ownership rights
     uint256 internal _tokensNeededForOwnership;
 
     // The total number of owners
     uint256 internal _totalOwners;
+
     // Owner status mapping
     mapping(address => bool) internal _owners;
+
     // Owner token balance mapping
     mapping(address => uint256) internal _balanceOwner;
+
     // Owners under exclusion vote
     mapping(address => bool) internal _isOwnerVotedOut;
+
     // Blacklisted addresses
     mapping(address => bool) internal _blackList;
+
+    // Returns global contract (AGE) address
+    function _implementation() internal view returns (address){
+        return _implementAGE;
+    }
+
+    // Validates owner's voting rights
+    function _isProxyOwner(address ownerAddress) internal view returns (bool) {
+        return _owners[ownerAddress] 
+        && !_isOwnerVotedOut[ownerAddress]
+        && _balanceOwner[ownerAddress] >= _tokensNeededForOwnership;
+    }
+
+    // A modifier that checks whether an address is in the list of owners, and whether a vote for exclusion is open for this address
+    modifier onlyOwner() {
+        require(_isProxyOwner(msg.sender), "BaseUtilityAndOwnable: Not an owner");
+        _;
+    }
+
+    // Checks if a contract implements a specific IAGE interface
+    function _checkContract(address contractAddress) internal view returns (bool) {
+        return IERC165(contractAddress).supportsInterface(type(IAGE).interfaceId);
+    }
+
+    // Abstract function, increases interest for specific owner 
+    function _increaseByPercent(address recepient) internal virtual;
+}
+// Interface for interacting with the Anhydrite contract.
+interface IANH is IERC20 {
+    // Gets the max supply of the token.
+    function getMaxSupply() external pure returns (uint256);
+    // Transfers tokens for the proxy.
+    function transferForProxy(uint256 amount) external;
+}
+// Interface to ensure that the global contract follows certain standards.
+interface IAGE {
+    function VERSION() external pure returns (uint256);
+    function setPrice(string memory name, uint256 count) external;
+    function getPrice(string memory name) external view returns (uint256);
+    function getServerFromTokenId(uint256 tokenId) external view returns (address);
+    function getTokenIdFromServer(address serverAddress) external view returns (uint256);
+}
+
+
+// Base contract for utility and ownership functionalities
+abstract contract VoteUtility is BaseUtility {
 
     // Voting outcome structure
     struct VoteResult {
         address[] isTrue;
         address[] isFalse;
         uint256 timestamp;
-    }
-
-    // Service status flags
-    bool internal _stopped = false;
-    bool internal _proposedStopped = false;
-    VoteResult internal _votesForStopped;
-
-    // Returns global contract (AGE) address
-    function _implementation() internal view returns (address){
-        return _implementAGE;
     }
 
     // Adds vote and returns vote counts 
@@ -120,7 +150,7 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver, ERC165 {
     }
 
     // Increases interest for specific owner
-    function _increaseByPercent(address recepient) internal {
+    function _increaseByPercent(address recepient) internal virtual override {
         uint256 percent = _tokensNeededForOwnership * 1 / 100;
         _balanceOwner[recepient] += percent;
     }
@@ -151,13 +181,6 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver, ERC165 {
         return false;
     }
 
-    // Validates owner's voting rights
-    function _isProxyOwner(address ownerAddress) internal view returns (bool) {
-        return _owners[ownerAddress] 
-        && !_isOwnerVotedOut[ownerAddress]
-        && _balanceOwner[ownerAddress] >= _tokensNeededForOwnership;
-    }
-
     // Modifier for checking whether 3 days have passed since the start of voting and whether it can be closed
     modifier canClose(uint256 timestamp) {
         require(block.timestamp >= timestamp + 3 days, "BaseUtilityAndOwnable: Voting is still open");
@@ -170,29 +193,14 @@ abstract contract BaseUtilityAndOwnable is IERC721Receiver, ERC165 {
         require(!_hasOwnerVoted(result, msg.sender), "BaseUtilityAndOwnable: Already voted");
         _;
     }
-
-    // A modifier that checks whether an address is in the list of owners, and whether a vote for exclusion is open for this address
-    modifier onlyOwner() {
-        require(_isProxyOwner(msg.sender), "BaseUtilityAndOwnable: Not an owner");
-        _;
-    }
-
-    // Handles received NFTs and forwards them
-    function onERC721Received(address, address, uint256 tokenId, bytes calldata) external override returns (bytes4) {
-        require(IERC165(msg.sender).supportsInterface(0x80ac58cd), "BaseUtilityAndOwnable: Sender does not support ERC-721");
-
-        IERC721(msg.sender).safeTransferFrom(address(this), _implementation(), tokenId);
-        return this.onERC721Received.selector;
-    }
-
-    // Checks if a contract implements a specific IAGE interface
-    function _checkContract(address contractAddress) internal view returns (bool) {
-        return IERC165(contractAddress).supportsInterface(type(IAGE).interfaceId);
-    }
 }
 
+
 // This contract extends BaseUtilityAndOwnable and is responsible for voting to stop/resume services
-abstract contract VotingStopped is BaseUtilityAndOwnable {
+abstract contract VotingStopped is VoteUtility {
+
+    VoteResult internal _votesForStopped;
+    bool internal _proposedStopped = false;
 
     // Event about the fact of voting, parameters
     event VotingForStopped(address indexed addressVoter, bool indexed vote);
@@ -258,8 +266,9 @@ abstract contract VotingStopped is BaseUtilityAndOwnable {
     }
 }
 
+
 // This contract extends BaseUtilityAndOwnable and is responsible for voting to tokens required for ownership rights
-abstract contract VotingNeededForOwnership is BaseUtilityAndOwnable {
+abstract contract VotingNeededForOwnership is VoteUtility {
 
     // Holds the proposed new token count needed for voting rights
     uint256 internal _proposedTokensNeeded;
@@ -330,8 +339,9 @@ abstract contract VotingNeededForOwnership is BaseUtilityAndOwnable {
     }
 }
 
+
 // This contract extends BaseUtilityAndOwnable and is responsible for voting on new implementations
-abstract contract VotingNewImplementation is BaseUtilityAndOwnable {
+abstract contract VotingNewImplementation is VoteUtility {
 
     // Internal state variables to store proposed implementation and voting results
     address internal _proposedImplementation;
@@ -397,8 +407,9 @@ abstract contract VotingNewImplementation is BaseUtilityAndOwnable {
     }
 }
 
+
 // This abstract contract is designed for handling the voting process for new owners.
-abstract contract VotingNewOwner is BaseUtilityAndOwnable {
+abstract contract VotingNewOwner is VoteUtility {
    
     // Internal state variables 
     address internal _proposedOwner;
@@ -468,8 +479,9 @@ abstract contract VotingNewOwner is BaseUtilityAndOwnable {
     }
 }
 
+
 // Abstract contract for voting to remove an owner.
-abstract contract VotingRemoveOwner is BaseUtilityAndOwnable {
+abstract contract VotingRemoveOwner is VoteUtility {
     
     // Holds the proposed to remove an owner
     address internal _proposedRemoveOwner;
@@ -544,6 +556,26 @@ abstract contract VotingRemoveOwner is BaseUtilityAndOwnable {
     }
 }
 
+
+// Declares an abstract contract ERC165 that implements the IERC165 interface
+abstract contract ERC165 is IERC165 {
+
+    // Internal mapping to store supported interfaces
+    mapping(bytes4 => bool) internal supportedInterfaces;
+
+    // Constructor to initialize the mapping of supported interfaces
+    constructor() {
+        // 0x01ffc9a7 is the interface identifier for ERC165 according to the standard
+        supportedInterfaces[0x01ffc9a7] = true;
+    }
+
+    // Implements the supportsInterface method from the IERC165 interface
+    // The function checks if the contract supports the given interface
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        return supportedInterfaces[interfaceId];
+    }
+}
+
 // IProxy interface defines the methods a Proxy contract should implement.
 interface IProxy {
     // Returns the core ERC20 token of the project
@@ -578,7 +610,7 @@ interface IProxy {
 }
 
 // Proxy is an abstract contract that implements the IProxy interface and adds utility and ownership functionality.
-abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
+abstract contract Proxy is IProxy, BaseUtility, ERC165 {
 
     constructor() {
         supportedInterfaces[type(IProxy).interfaceId] = true;
@@ -681,8 +713,15 @@ interface IERC20Receiver {
 }
 
 // AnhydriteProxyOwners is an extension of several contracts and interfaces, designed to manage ownership, voting, and token interaction.
-contract AnhydriteProxyOwners
- is Proxy, VotingStopped, VotingNeededForOwnership, VotingNewImplementation, VotingNewOwner, VotingRemoveOwner, IERC20Receiver {
+contract AnhydriteProxyOwners is
+    Proxy,
+    VotingStopped,
+    VotingNeededForOwnership,
+    VotingNewImplementation,
+    VotingNewOwner,
+    VotingRemoveOwner,
+    IERC20Receiver,
+    IERC721Receiver {
 
     // Event emitted when an owner voluntarily exits.
     event VoluntarilyExit(address indexed votingSubject, uint returnTokens);
@@ -786,23 +825,14 @@ contract AnhydriteProxyOwners
         }
         return returnValue;
     }
-}
 
-// Interface to ensure that the global contract follows certain standards.
-interface IAGE {
-    function VERSION() external pure returns (uint256);
-    function setPrice(string memory name, uint256 count) external;
-    function getPrice(string memory name) external view returns (uint256);
-    function getServerFromTokenId(uint256 tokenId) external view returns (address);
-    function getTokenIdFromServer(address serverAddress) external view returns (uint256);
-}
+    // Handles received NFTs and forwards them
+    function onERC721Received(address, address, uint256 tokenId, bytes calldata) external override returns (bytes4) {
+        require(IERC165(msg.sender).supportsInterface(0x80ac58cd), "BaseUtilityAndOwnable: Sender does not support ERC-721");
 
-// Interface for interacting with the Anhydrite contract.
-interface IANH is IERC20 {
-    // Gets the max supply of the token.
-    function getMaxSupply() external pure returns (uint256);
-    // Transfers tokens for the proxy.
-    function transferForProxy(uint256 amount) external;
+        IERC721(msg.sender).safeTransferFrom(address(this), _implementation(), tokenId);
+        return this.onERC721Received.selector;
+    }
 }
 
 interface IERC1820Registry {
