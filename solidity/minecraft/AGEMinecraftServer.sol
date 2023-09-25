@@ -14,29 +14,22 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 
-interface INFTSales {
-    function setPriceNFT(uint256 payAmount) external;
-    function setPriceNFTWithTokens(address tokenAddress, uint256 payAmount) external;
-    function buyNFT() external payable;
-    function buyNFTWithTokens() external;
+abstract contract NFTSales is ERC721Enumerable, Ownable {
+
+    Price private _price;
 
     event NFTPurchased(address indexed purchaser);
-}
-
-abstract contract NFTSales is INFTSales, ERC721Enumerable, Ownable {
 
     struct Price {
         address tokenAddress;
         uint256 amount;
     }
 
-    Price private _price;
-
-    function setPriceNFT(uint256 payAmount) external override onlyOwner {
+    function setPriceNFT(uint256 payAmount) external onlyOwner {
         _setPrice(address(0), payAmount);
     }
 
-    function setPriceNFTWithTokens(address tokenAddress, uint256 payAmount) external override onlyOwner {
+    function setPriceNFTWithTokens(address tokenAddress, uint256 payAmount) external onlyOwner {
        _setPrice(tokenAddress, payAmount);
     }
 
@@ -47,11 +40,11 @@ abstract contract NFTSales is INFTSales, ERC721Enumerable, Ownable {
         });
     }
 
-    function buyNFT() external override payable {
+    function buyNFT() external payable {
         _buyNFT();
     }
 
-    function buyNFTWithTokens() external override {
+    function buyNFTWithTokens() external {
         _buyNFT();
     }
   
@@ -207,6 +200,85 @@ abstract contract Finances is Ownable, IFinances {
 
 }
 
+
+abstract contract Cashback is Ownable {
+
+    struct StructCashback {
+        string name;
+        address contractCashbackAddress;
+        uint256 price;
+    }
+
+    mapping(bytes32 => StructCashback) internal cashback;
+    bytes32[] internal cashbackArreys;
+
+    function upsertCashback(string memory name, address contractCashbackAddress, uint256 price) external onlyOwner {
+        require(_supportsICashback(contractCashbackAddress), "Cashback: Address does not comply with ICashback interface");
+        bytes32 key = keccak256(abi.encodePacked(name));
+
+        if (!isCashbackExists(key)) {
+            cashbackArreys.push(key);
+        }
+        
+        StructCashback storage cb = cashback[key];
+        cb.name = name;
+        cb.contractCashbackAddress = contractCashbackAddress;
+        cb.price = price;
+    }
+
+    function deleteCashback(bytes32 key) external onlyOwner {
+        require(isCashbackExists(key), "Cashback: Key does not exist.");
+        
+        delete cashback[key];
+        
+        for (uint256 i = 0; i < cashbackArreys.length; i++) {
+            if (cashbackArreys[i] == key) {
+                cashbackArreys[i] = cashbackArreys[cashbackArreys.length - 1];
+                cashbackArreys.pop();
+                break;
+            }
+        }
+    }
+
+    function isCashbackExists(bytes32 source) internal view returns (bool) {
+        return cashback[source].contractCashbackAddress != address(0);
+    }
+
+    function getCashback(string memory name) external view returns (address, uint256) {
+        return _getCashback(keccak256(abi.encodePacked(name)));
+    }
+
+    function getCashback(bytes32 source) external view returns (address, uint256) {
+        return _getCashback(source);
+    }
+
+    function _getCashback(bytes32 source) internal view returns (address, uint256) {
+        return (cashback[source].contractCashbackAddress, cashback[source].price);
+    }
+
+    function getAllCashbacks() external view returns (StructCashback[] memory) {
+        uint256 length = cashbackArreys.length;
+        StructCashback[] memory cashbacksList = new StructCashback[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            bytes32 key = cashbackArreys[i];
+            cashbacksList[i] = cashback[key];
+        }
+
+        return cashbacksList;
+    }
+
+    function _supportsICashback(address contractAddress) internal view returns (bool) {
+        return IERC165(contractAddress).supportsInterface(type(ICashback).interfaceId);
+    }
+}
+interface ICashback {
+    function issueTokens(address _recipient, bytes32 source) external;
+    function isAddressApproved(address module) external view returns (bool);
+    function toggleAddressApproval(address address_) external;
+}
+
+
 interface IServerContract {
     function setServerDetails(bytes4 newServerIpAddress, uint16 newServerPort, string calldata newServerName, string calldata newServerAddress) external;
     function setServerIpAddress(bytes4 newIpAddress) external;
@@ -222,7 +294,7 @@ interface IServerContract {
 }
 
 /// @custom:security-contact support@anh.ink
-contract AnhydriteMinecraftServer is ERC721, ERC721URIStorage, ERC721Burnable, IERC721Receiver, IModulesMC, NFTSales, Finances, IServerContract {
+contract AGEMinecraftServer is ERC721, ERC721URIStorage, ERC721Burnable, IERC721Receiver, IModulesMC, NFTSales, Finances, IServerContract {
     using Counters for Counters.Counter;
     
 
@@ -418,7 +490,7 @@ interface IFactory {
         address ownerAddress;
     }
 
-    function createModule(string memory name, string memory symbol, address serverContractAddress, address ownerAddress) external returns (address);
+    function deployModule(string memory name, string memory symbol, address serverContractAddress, address ownerAddress) external returns (address);
     function getDeployedModules() external view returns (Deployed[] memory);
     function getNumberOfDeployedModules() external view returns (uint256);
 }
@@ -435,9 +507,9 @@ contract FactoryContract is IFactory {
         _proxyAddress = proxyAddress;
     }
 
-    function createModule(string memory name, string memory symbol, address ownerAddress, address) external override onlyAllowed(ownerAddress) returns (address) {
+    function deployModule(string memory name, string memory symbol, address ownerAddress, address) external override onlyAllowed(ownerAddress) returns (address) {
         // unusedAddress not used but retained for compatibility with the standard
-        AnhydriteMinecraftServer newModule = new AnhydriteMinecraftServer(_proxyAddress, ownerAddress, name, symbol);
+        AGEMinecraftServer newModule = new AGEMinecraftServer(_proxyAddress, ownerAddress, name, symbol);
         newModule.transferOwnership(ownerAddress);
         
         Deployed memory newDeployedModule = Deployed({

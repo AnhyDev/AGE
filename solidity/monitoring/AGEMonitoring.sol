@@ -36,17 +36,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 abstract contract BaseUtility {
 
     // Main project token (ANH) address
-    IANH public constant ANHYDRITE = IANH(0x9a9a0EB311E937C7D75d3468C8b0135d4976DAa7);
-
-    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
-    modifier onlyProxyOwner() {
-        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
-            _checkProxyOwner();
-        } else {
-            _checkOwner();
-        }
-        _;
-    }
+    IANH public constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
 
     // This function returns the IProxy interface for the Anhydrite token's proxy contract
     function _proxyContract() internal view returns (IProxy) {
@@ -62,11 +52,16 @@ abstract contract BaseUtility {
      * @dev Throws if the sender is not the owner.
      */
     function _checkProxyOwner() internal view virtual {
-        require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxyOwner");
+        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
+            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxyOwner");
+        } else {
+            _checkOwner();
+        }
     }
 
     function _checkOwner() internal view virtual;
 }
+
 // Interface for interacting with the Anhydrite contract.
 interface IANH is IERC20 {
     // Returns the interface address of the proxy contract
@@ -76,6 +71,7 @@ interface IANH is IERC20 {
      */
     function burnFrom(address account, uint256 amount) external;
 }
+
 interface IProxy {
     // Returns the address of the current implementation (logic contract)
     function implementation() external view returns (address);
@@ -91,7 +87,7 @@ interface IProxy {
 // contract AnhydriteGamingEcosystem:  _proxyContract().implementation() functions
 
     // Get the price of the service
-    function getPrice(string memory name) external view returns (uint256);
+    function getPrice(bytes32 key) external view returns (uint256);
     // This function gets the address of the game server metadata contract
     function getGameServerMetadata() external view returns (address);
 }
@@ -168,6 +164,9 @@ abstract contract Ownable is BaseUtility {
  */
 abstract contract VoteUtility is Ownable {
 
+    // Enum for vote result clarity
+    enum VoteResultType { None, Approved, Rejected }
+
     // Voting structure
     struct VoteResult {
         address[] isTrue;
@@ -205,26 +204,60 @@ abstract contract VoteUtility is Ownable {
 
     /*
      * Internal Function: _votes
-     * - Purpose: Records a vote for a given voting result and returns vote counts.
+     * - Purpose: Records an individual vote, updates the overall vote counts, and evaluates the current voting outcome.
      * - Arguments:
-     *   - result: The voting result to update.
-     *   - vote: Boolean representing the vote (true for upvote, false for downvote).
+     *   - result: The VoteResult storage object that tracks the current state of both favorable ("true") and opposing ("false") votes.
+     *   - vote: A Boolean value representing the stance of the vote (true for in favor, false for against).
      * - Returns:
-     *   - Number of upvotes.
-     *   - Number of downvotes.
-     *   - Total number of owners.
+     *   - The number of favorable votes.
+     *   - The number of opposing votes.
+     *   - An enum (VoteResultType) that represents the current status of the voting round based on the accumulated favorable and opposing votes.
      */
-    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
-        uint256 _totalOwners = 1;
-        if (address(_proxyContract()) != address(0)) {
-            _totalOwners = _proxyContract().getTotalOwners();
-        } 
+    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, VoteResultType) {
         if (vote) {
             result.isTrue.push(msg.sender);
         } else {
             result.isFalse.push(msg.sender);
         }
-        return (result.isTrue.length, result.isFalse.length, _totalOwners);
+        uint256 votestrue = result.isTrue.length;
+        uint256 votesfalse = result.isFalse.length;
+        return (votestrue, votesfalse, _voteResult(votestrue, votesfalse));
+    }
+
+    /*
+     * Internal Function: _voteResult
+     * - Purpose: Evaluates the outcome of a voting round based on the current numbers of favorable and opposing votes.
+     * - Arguments:
+     *   - votestrue: The number of favorable votes.
+     *   - votesfalse: The number of opposing votes.
+     * - Returns:
+     *   - An enum (VoteResultType) representing the voting outcome: None if the vote is still inconclusive, Approved if the vote meets or exceeds a 60% approval rate, and Rejected if the opposing votes exceed a 40% threshold.
+     */
+    function _voteResult(uint256 votestrue, uint256 votesfalse) private view returns (VoteResultType) {
+        VoteResultType result = VoteResultType.None;
+        uint256 VOTE_THRESHOLD_FOR = 60;
+        uint256 VOTE_THRESHOLD_AGAINST = 40;
+        if (votestrue * 100 >= _totalOwners() * VOTE_THRESHOLD_FOR) {
+            result = VoteResultType.Approved;
+        } else if (votesfalse * 100 > _totalOwners() * VOTE_THRESHOLD_AGAINST) {
+            result = VoteResultType.Rejected;
+        }
+        return result;
+    }
+
+    /*
+     * Internal Function: _totalOwners
+     * - Purpose: Calculates the total number of owners, taking into account any proxy owners if present.
+     * - Arguments: None
+     * - Returns:
+     *   - An unsigned integer representing the total number of owners.
+     */
+    function _totalOwners() private view returns (uint256) {
+        uint256 _tOwners = 1;
+        if (address(_proxyContract()) != address(0)) {
+            _tOwners = _proxyContract().getTotalOwners();
+        }
+        return _tOwners;
     }
 
     // Internal function to reset the voting result to its initial state
@@ -371,7 +404,8 @@ abstract contract OwnableManager is VoteUtility {
     event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint256 votesFor, uint256 votesAgainst);
 
     // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
-    function transferOwnership(address proposedOwner) external onlyProxyOwner {
+    function transferOwnership(address proposedOwner) external {
+        _checkProxyOwner();
         require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
         require(!_proxyContract().isBlacklisted(proposedOwner),"OwnableManager: this address is blacklisted");
         require( _isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
@@ -386,7 +420,8 @@ abstract contract OwnableManager is VoteUtility {
     }
 
     // Vote to change the owner of a smart contract
-    function voteForNewOwner(bool vote) external onlyProxyOwner {
+    function voteForNewOwner(bool vote) external {
+        _checkProxyOwner();
         _voteForNewOwner(vote);
     }
 
@@ -394,14 +429,14 @@ abstract contract OwnableManager is VoteUtility {
     function _voteForNewOwner(bool vote) private hasNotVoted(_votesForNewOwner) {
         require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
 
-        (uint256 votestrue, uint256 votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewOwner, vote);
 
         emit VotingForOwner(msg.sender, _proposedOwner, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        if (result == VoteResultType.Approved) {
             _transferOwnership(_proposedOwner);
             _completionVotingNewOwner(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
+        } else if (result == VoteResultType.Rejected) {
             _completionVotingNewOwner(vote, votestrue, votesfalse);
         }
     }
@@ -414,7 +449,8 @@ abstract contract OwnableManager is VoteUtility {
     }
 
     // A function to close a vote on which a decision has not been made for three or more days
-    function closeVoteForNewOwner() external onlyProxyOwner {
+    function closeVoteForNewOwner() external {
+        _checkProxyOwner();
         require(_proposedOwner != address(0), "OwnableManager: There is no open vote" );
         require(block.timestamp >= _votesForNewOwner.timestamp + 3 days, "BaseUtility: Voting is still open");
         emit CloseVoteForNewOwner( msg.sender, _proposedOwner, _votesForNewOwner.isTrue.length, _votesForNewOwner.isFalse.length );
@@ -452,7 +488,8 @@ abstract contract ServerBlockingManager is VoteUtility {
     function _isBlocked(address serverAddress) internal view virtual returns (bool);
     function _setBlocked(address serverAddress) internal virtual;
 
-    function blockServer(address proposedBlocking) external onlyProxyOwner {
+    function blockServer(address proposedBlocking) external {
+        _checkProxyOwner();
         require(_isServer(proposedBlocking), "Server address not found");
         require(_isBlocked(proposedBlocking), "Server is already blocked");
         require(proposedBlocking == address(0), "ServerBlockingManager: voting is already activated");
@@ -468,7 +505,8 @@ abstract contract ServerBlockingManager is VoteUtility {
     }
 
     // Vote to change the owner of a smart contract
-    function voteForServerBlocking(bool vote) external onlyProxyOwner {
+    function voteForServerBlocking(bool vote) external {
+        _checkProxyOwner();
         _voteForServerBlocking(vote);
     }
 
@@ -476,14 +514,14 @@ abstract contract ServerBlockingManager is VoteUtility {
     function _voteForServerBlocking(bool vote) internal hasNotVoted(_votesForServerBlocking) {
         require(_proposedBlocking != address(0), "ServerBlockingManager: there are no votes at this address");
 
-        (uint256 votestrue, uint256 votesfalse, uint256 _totalOwners) = _votes(_votesForServerBlocking, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForServerBlocking, vote);
 
         emit VotingForServerBlocking(msg.sender, _proposedBlocking, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        if (result == VoteResultType.Approved) {
             _setBlocked(_proposedBlocking);
             _completionVotingServerBlocking(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
+        } else if (result == VoteResultType.Rejected) {
             _completionVotingServerBlocking(vote, votestrue, votesfalse);
         }
     }
@@ -496,7 +534,8 @@ abstract contract ServerBlockingManager is VoteUtility {
     }
 
     // A function to close a vote on which a decision has not been made for three or more days
-    function closeVoteForServerBlockingr() external onlyProxyOwner {
+    function closeVoteForServerBlockingr() external {
+        _checkProxyOwner();
         require(_proposedBlocking != address(0), "ServerBlockingManager: There is no open vote" );
         require(block.timestamp >= _votesForServerBlocking.timestamp + 3 days, "BaseUtility: Voting is still open");
         emit CloseVoteForServerBlocking( msg.sender, _proposedBlocking, _votesForServerBlocking.isTrue.length, _votesForServerBlocking.isFalse.length );
@@ -580,27 +619,170 @@ interface IGameData {
 }
 
 
-// Interface defining the essential methods for the AnhydriteMonitoring smart contract.
-interface IAnhydriteMonitoring {
+// Declares an abstract contract ERC165 that implements the IERC165 interface
+abstract contract ERC165 is IERC165 {
+
+    // Internal mapping to store supported interfaces
+    mapping(bytes4 => bool) internal supportedInterfaces;
+
+    // Constructor to initialize the mapping of supported interfaces
+    constructor() {
+        // 0x01ffc9a7 is the interface identifier for ERC165 according to the standard
+        supportedInterfaces[0x01ffc9a7] = true;
+    }
+
+    // Implements the supportsInterface method from the IERC165 interface
+    // The function checks if the contract supports the given interface
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        return supportedInterfaces[interfaceId];
+    }
+}
+
+// Interface for contracts that are capable of receiving ERC20 (ANH) tokens.
+interface IERC20Receiver {
+    // Function that is triggered when ERC20 (ANH) tokens are received.
+    function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+}
+
+/**
+ * @title ERC20Receiver Abstract Contract
+ * @dev This contract extends from IERC20Receiver, BaseUtility, and ERC165 interfaces.
+ *      It provides functionalities for receiving ERC20 (ANHYDRITE) tokens and responding with a magic identifier.
+ *      It uses the IERC1820Registry for handling standardized contract interface detection.
+ * 
+ *      Events:
+ *      - DepositAnhydrite: Emitted when ANHYDRITE tokens are deposited.
+ *      - ChallengeIERC20Receiver: Emitted to track from which address the tokens were transferred,
+ *          who transferred them, to which address and the number of tokens.
+ * 
+ *      Functions include:
+ *      - onERC20Received: Overridden from IERC20Receiver, handles incoming ERC20 token transfers.
+ */
+abstract contract ERC20Receiver is IERC20Receiver, BaseUtility, ERC165 {
+
+    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+
+    // Event emitted when Anhydrite tokens are deposited.
+    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
+    // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
+    event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
+
+    constructor() {
+        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
+    }
+
+    /**
+     * @dev Handles the receipt of ERC20 tokens. Implements the IERC20Receiver interface.
+     * @param _from The address from which the tokens are sent.
+     * @param _who The address that triggered the sending of tokens.
+     * @param _amount The amount of tokens received.
+     * @return bytes4 The interface identifier, to confirm contract adherence.
+     */
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        bytes4 fakeID = bytes4(keccak256("anything_else"));
+        bytes4 validID = this.onERC20Received.selector;
+        bytes4 returnValue = fakeID;  // Default value
+        if (msg.sender.code.length > 0) {
+            if (msg.sender == address(ANHYDRITE)) {
+                emit DepositAnhydrite(_from, _who, _amount);
+                returnValue = validID;
+            } else {
+                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
+                    if (balance >= _amount) {
+                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
+                        returnValue = validID;
+                    }
+                } catch {
+                    // No need to change returnValue, it's already set to fakeID
+                }
+            }
+            return returnValue;
+        } else {
+            revert ("ERC20Receiver: This function is for handling token acquisition");
+        }
+    }
+}
+
+/**
+ * @title IERC1820Registry Interface
+ * @dev This is an interface for the ERC1820 Registry contract, a central registry 
+ *      used to discover which interface a particular address supports.
+ * 
+ *      The ERC1820 standard is a meta-standard that defines a universal registry smart contract 
+ *      where any address (contract or regular account) can indicate which interface it supports.
+ *
+ *      Functions:
+ *      - setInterfaceImplementer: Sets the contract which implements a specific interface for an address.
+ */
+interface IERC1820Registry {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+}
+
+
+// Interface defining the essential functions for the AnhydriteMonitoring smart contract.
+interface IAGEMonitoring {
+    // Functions to add or remove server addresses.
     function addServerAddress(uint256 gameId, address serverAddress) external;
     function removeServerAddress(address serverAddress) external;
+    
+    // Voting mechanism handlers
     function voteForServer(address voterAddress, address serverAddress) external;
+    function voteForServerWith10(address voterAddress, address serverAddress) external;
+    function voteForServerWith100(address voterAddress, address serverAddress) external;
+    function voteForServerWith1000(address voterAddress, address serverAddress) external;
+    function voteForServerWith10000(address voterAddress, address serverAddress) external;
+    function voteForServerWith100000(address voterAddress, address serverAddress) external;
+    function voteForServerWith1000000(address voterAddress, address serverAddress) external;
+    
+    // Transaction burn fee calculators
+    function getBurnFeeFor1Vote() external view returns (uint256);
+    function getBurnFeeFor10Votes() external view returns (uint256);
+    function getBurnFeeFor100Votes() external view returns (uint256);
+    function getBurnFeeFor1000Votes() external view returns (uint256);
+    function getBurnFeeFor10000Votes() external view returns (uint256);
+    function getBurnFeeFor100000Votes() external view returns (uint256);
+    function getBurnFeeFor1000000Votes() external view returns (uint256);
+    
+    // Functions to get information about servers.
     function getServerVotes(address serverAddress) external view returns (uint256);
     function getGameServerAddresses(uint256 gameId, uint256 startIndex, uint256 endIndex) external view returns (address[] memory);
     function isServerExist(address serverAddress) external view returns (bool);
     function getServerBlocked(address serverAddress) external view returns (bool, uint256);
-    function getPriceVotes() external view returns (uint256);
-    function stopContract() external;
 }
 
-/*
- * AnhydriteMonitoring is the main contract for managing game servers and votes.
- * It inherits from multiple base contracts and interfaces to get various functionalities.
-*/
-contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBlockingManager, FinanceManager, GameData, IERC721Receiver {
+
+/**
+ * @title ServerDelegator
+ * @author Your Name or Organization
+ * @notice Контракт ServerDelegator розроблений для делегування серверів та обчислення плати за використання ресурсів.
+ * Контракт надає можливість голосування для вибору сервера та забезпечує транспарентність та правильність обчислення плати.
+ */
+contract AGEMonitoring is IAGEMonitoring,
+    OwnableManager,
+    ServerBlockingManager,
+    FinanceManager,
+    GameData,
+    ERC20Receiver,
+    IERC721Receiver {
 
     // Constant for pricing model.
-    string private constant _priceName = "The price of voting on monitoring";
+    bytes32 private constant _priceVotingBytes  = keccak256(
+        abi.encodePacked("The price of voting on monitoring")
+    );
+
+    // The base price is the fundamental unit of ether (wei) expressed in its decimal form (10^18).
+    uint256 private constant _basePrice = 1 * 10 ** 18;
+    
+    // The following constants represent the percentage of tokens to be burnt when voting, 
+    // varying based on the number of votes cast in a single transaction.
+    // The higher the number of votes, the lower the percentage of tokens burnt.
+    uint256 private constant PERCENTAGE_10_VOTES = 90;
+    uint256 private constant PERCENTAGE_100_VOTES = 80;
+    uint256 private constant PERCENTAGE_1000_VOTES = 70;
+    uint256 private constant PERCENTAGE_10000_VOTES = 60;
+    uint256 private constant PERCENTAGE_100000_VOTES = 50;
+    uint256 private constant PERCENTAGE_1000000_VOTES = 40;
 
     // State variable to check if the contract is operational or not.
     bool public isContractStopped = false;
@@ -622,37 +804,48 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
 
 
     // Voted event is emitted when a user successfully votes for a server.
-    event Voted(address indexed voter, address indexed serverAddress, string game, string indexed symbol, uint256 amount);
+    event Voted(address indexed voter, address indexed serverAddress, string game, string indexed symbol, uint256 totalVotes, uint256 newVotes);
     // ContractStopped is emitted when the contract is manually halted by the owner.
     event ContractStopped();
 
     constructor() {
+        supportedInterfaces[type(IAGEMonitoring).interfaceId] = true;
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("IAGEMonitoring"), address(this));
     }
 
-    // Modifier to prevent function execution when the contract is stopped.
+    // This modifier ensures that the function can only be executed if the contract is not stopped.
     modifier notStopped() {
-        require(!isContractStopped, "AnhydriteMonitoring: Contract is stopped.");
+        require(!isContractStopped, "AGEMonitoring: Contract is stopped.");
         _;
     }
 
+    // This modifier ensures that the function can only be executed by the global smart contract.
+    // This is verified by comparing the caller address to the implementation address of the proxy contract.
     modifier onlyGlobal() {
-        require(_proxyContract().implementation() == msg.sender, "AnhydriteMonitoring: This function is only available from a global smart contract.");
+        require(_proxyContract().implementation() == msg.sender,
+            "AGEMonitoring: This function is only available from a global smart contract."
+        );
         _;
     }
 
-    // Public function to add a new server for a game.
-    // Restricted to only be called from a global smart contract.
-    // Checks that the contract is not stopped before executing.
+    /**
+     * This function allows a global contract to add a new server address for a specified game.
+     * @param gameId: The ID of the game to which the server is to be added.
+     * @param serverAddress: The address of the server that is to be added.
+     */
     function addServerAddress(uint256 gameId, address serverAddress) external override onlyGlobal notStopped {
         _addServerAddress(gameId, serverAddress);
     }
 
-    // Internal function to abstract the logic of adding a server.
-    // Validates game ID and address before adding it to the relevant data structures.
+    /**
+     * This internal function performs the actual addition of the server address for a specified game.
+     * @param gameId: The ID of the game to which the server is to be added.
+     * @param serverAddress: The address of the server that is to be added.
+     */
     function _addServerAddress(uint256 gameId, address serverAddress) internal {
-        require(_checkGameIdNotEmpty(gameId), "AnhydriteMonitoring: Invalid game ID");
-        require(serverAddress != address(0), "AnhydriteMonitoring: Invalid server address");
-        require(!servers[serverAddress], "AnhydriteMonitoring: Server address already added");
+        require(_checkGameIdNotEmpty(gameId), "AGEMonitoring: Invalid game ID");
+        require(serverAddress != address(0), "AGEMonitoring: Invalid server address");
+        require(!servers[serverAddress], "AGEMonitoring: Server address already added");
 
         gameServers[gameId].push(serverAddress);
 
@@ -666,10 +859,12 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
         servers[serverAddress] = true;
     }
 
-    // Public function to remove an existing server.
-    // This is also restricted to be only called from the global smart contract.
+    /**
+     * This function allows a global contract to remove a server address.
+     * @param serverAddress: The address of the server that is to be removed.
+     */
     function removeServerAddress(address serverAddress) external override onlyGlobal notStopped {
-        require(servers[serverAddress], "AnhydriteMonitoring: Server address not found");
+        require(servers[serverAddress], "AGEMonitoring: Server address not found");
 
         uint256 gameId = serversInfo[serverAddress].gameId;
         uint256 index = serversInfo[serverAddress].index;
@@ -678,32 +873,137 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
         delete serversInfo[serverAddress];
     }
 
-    // Public function to vote for a server. 
-    // This function can only be invoked from the global contract and also performs some financial logic like token burns for voting.
-   function voteForServer(address voterAddress, address serverAddress) external override onlyGlobal notStopped {
-        require(serverAddress != address(0), "AnhydriteMonitoring: Invalid server address");
-        uint256 amount = _proxyContract().getPrice(_priceName);
+    /*
+     * VOTING MECHANISM HANDLERS
+     * These functions are responsible for handling 
+     * all operations related to the voting process.
+     */ 
+    function voteForServer(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 1, 100);
+    }
+    function voteForServerWith10(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 10, PERCENTAGE_10_VOTES);
+    }
+    function voteForServerWith100(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 100, PERCENTAGE_100_VOTES);
+    }
+    function voteForServerWith1000(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 1000, PERCENTAGE_1000_VOTES);
+    }
+    function voteForServerWith10000(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 10000, PERCENTAGE_10000_VOTES);
+    }
+    function voteForServerWith100000(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 100000, PERCENTAGE_100000_VOTES);
+    }
+    function voteForServerWith1000000(address voterAddress, address serverAddress) external override notStopped {
+        voterAddress = _getVoterAddress(voterAddress);
+        _vote(voterAddress, serverAddress, 1000000, PERCENTAGE_1000000_VOTES);
+    }
+
+    /*
+     * TRANSACTION BURN FEE CALCULATORS
+     * These functions are responsible for calculating the 
+     * commission fees to be burned during a transaction.
+     */
+    function getBurnFeeFor1Vote() external view override returns (uint256) {
+        return _calculateAmountToBurn(1, 100);
+    }
+    function getBurnFeeFor10Votes() external view override returns (uint256) {
+        return _calculateAmountToBurn(10, PERCENTAGE_10_VOTES);
+    }
+    function getBurnFeeFor100Votes() external view override returns (uint256) {
+        return _calculateAmountToBurn(100, PERCENTAGE_100_VOTES);
+    }
+    function getBurnFeeFor1000Votes() external view override returns (uint256) {
+        return _calculateAmountToBurn(1000, PERCENTAGE_1000_VOTES);
+    }
+    function getBurnFeeFor10000Votes() external view override returns (uint256) {
+        return _calculateAmountToBurn(10000, PERCENTAGE_10000_VOTES);
+    }
+    function getBurnFeeFor100000Votes() external view override returns (uint256) {
+        return _calculateAmountToBurn(100000, PERCENTAGE_100000_VOTES);
+    }
+    function getBurnFeeFor1000000Votes() external view override returns (uint256) {
+        return _calculateAmountToBurn(1000000, PERCENTAGE_1000000_VOTES);
+    }
+
+    /**
+     * This internal function gets the address of the voter. 
+     * If the sender is not the proxy contract implementation, 
+     * the voter address is set to the sender's address. 
+     * This function is mainly used in the voting mechanism handlers 
+     * to ensure the correct voter address is used in the vote transactions.
+     * @param voterAddress: The input address to be checked and possibly reassigned.
+     * @return address: The address of the voter.
+     */
+    function _getVoterAddress(address voterAddress) internal view returns (address) {
+        if (_proxyContract().implementation() != msg.sender) {
+            voterAddress = msg.sender;
+        }
+        return voterAddress;
+    }
+
+    /**
+     * This internal function handles the voting process, where votes are cast 
+     * for a server, and the corresponding amount of tokens are burnt based on the 
+     * number of votes and the specified percentage.
+     * If the server does not exist, it gets added, and if it does, 
+     * the number of votes it has received is updated.
+     * An event is emitted with details of the vote transaction.
+     * @param voterAddress: The address of the voter.
+     * @param serverAddress: The address of the server being voted for.
+     * @param numberOfVotes: The number of votes being cast.
+     * @param percentage: The specified percentage to calculate the amount to burn.
+     */
+    function _vote(address voterAddress, address serverAddress, uint256 numberOfVotes, uint256 percentage) internal {
+        require(serverAddress != address(0), "AGEMonitoring: Invalid server address");
         
-        if(amount > 0) {
-            uint256 senderBalance = ANHYDRITE.balanceOf(voterAddress);
-            require(senderBalance >= amount, "AnhydriteMonitoring: Insufficient token balance");
-            uint256 allowance = ANHYDRITE.allowance(voterAddress, address(this));
-            require(allowance >= amount, "AnhydriteMonitoring: Token allowance too small");
-            ANHYDRITE.burnFrom(voterAddress, amount);
+        uint256 amountToBurn = _calculateAmountToBurn(numberOfVotes, percentage);
+
+        if (amountToBurn > 0) {
+            require(ANHYDRITE.balanceOf(voterAddress) >= amountToBurn, "AGEMonitoring: Insufficient token balance");
+            require(ANHYDRITE.allowance(voterAddress, address(this)) >= amountToBurn, "AGEMonitoring: Token allowance too small");
+            ANHYDRITE.burnFrom(voterAddress, amountToBurn);
         }
 
         uint256 gameId = serversInfo[serverAddress].gameId;
         if (!servers[serverAddress]) {
             _addServerAddress(gameId, serverAddress);
         } else {
-            serversInfo[serverAddress].votes++;
+            serversInfo[serverAddress].votes += numberOfVotes;
         }
         (string memory gameName, string memory gameSymbol) = _getGameServerMetadata().getServerData(gameId);
 
-        emit Voted(voterAddress, serverAddress, gameName, gameSymbol, serversInfo[serverAddress].votes);
+        emit Voted(voterAddress, serverAddress, gameName, gameSymbol, serversInfo[serverAddress].votes, numberOfVotes);
+    }
+ 
+    /**
+     * This function calculates the amount of tokens to burn based on the number of votes and the specified percentage.
+     * @param numberOfVotes: The number of votes.
+     * @param percentage: The specified percentage.
+     */
+    function _calculateAmountToBurn(uint256 numberOfVotes, uint256 percentage) internal view returns (uint256) {
+        uint256 burned = _proxyContract().getPrice(_priceVotingBytes) != 0 ? 
+            _proxyContract().getPrice(_priceVotingBytes) : _basePrice;
+            
+        if (numberOfVotes == 1 && _proxyContract().getPrice(_priceVotingBytes) == 0) {
+            return 0;
+        } else {
+            return (burned * numberOfVotes * percentage) / 100;
+        }
     }
 
-    // Public function to get the vote count for a particular server.
+    /**
+     * This function returns the vote count of a specified server.
+     * @param serverAddress: The address of the server.
+     */
     function getServerVotes(address serverAddress) external override view returns (uint256) {
         if(serversInfo[serverAddress].isBlocked) {
             return 0;
@@ -711,10 +1011,15 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
         return serversInfo[serverAddress].votes;
     }
 
-    // Public function to get a list of server addresses for a game ID within a range of indices.
+    /**
+     * This function returns a list of server addresses for a specified game ID within a range of indices.
+     * @param gameId: The ID of the game.
+     * @param startIndex: The starting index of the range.
+     * @param endIndex: The ending index of the range.
+     */
     function getGameServerAddresses(uint256 gameId, uint256 startIndex, uint256 endIndex) external override view returns (address[] memory) {
-        require(_checkGameIdNotEmpty(gameId), "AnhydriteMonitoring: Invalid game ID");
-        require(startIndex <= endIndex, "AnhydriteMonitoring: Invalid start or end index");
+        require(_checkGameIdNotEmpty(gameId), "AGEMonitoring: Invalid game ID");
+        require(startIndex <= endIndex, "AGEMonitoring: Invalid start or end index");
 
         address[] storage originalList = gameServers[gameId];
         uint256 length = originalList.length;
@@ -723,7 +1028,7 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
             return new address[](0);
         }
 
-        require(startIndex < length, "AnhydriteMonitoring: Start index out of bounds.");
+        require(startIndex < length, "AGEMonitoring: Start index out of bounds.");
 
         if (endIndex >= length) {
             endIndex = length - 1;
@@ -753,24 +1058,27 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
         return resultList;
     }
 
-    // Checks if a server exists given its address.
+    /**
+     * This function checks whether a server exists given its address.
+     * @param serverAddress: The address of the server.
+     */
     function isServerExist(address serverAddress) external override view returns (bool) {
         return _isServer(serverAddress);
     }
 
-    // Checks if a server is blocked and also returns its votes.
+    /**
+     * This function checks whether a server is blocked and also returns its vote count.
+     * @param serverAddress: The address of the server.
+     */
     function getServerBlocked(address serverAddress) external override view returns (bool, uint256) {
         return (_isBlocked(serverAddress), serversInfo[serverAddress].votes);
     }
 
-    // Gets the current price for voting.
-    function getPriceVotes() external view returns (uint256) {
-        return _proxyContract().getPrice(_priceName);
-    }
-
-    // Allows the contract owner to stop the contract.
+    /**
+     * This function allows the contract owner to halt the contract operations.
+     */
     function stopContract() external onlyOwner {
-        require(!isContractStopped, "AnhydriteMonitoring: Contract is already stopped.");
+        require(!isContractStopped, "AGEMonitoring: Contract is already stopped.");
         isContractStopped = true;
         emit ContractStopped();
     }
@@ -780,15 +1088,26 @@ contract AnhydriteMonitoring is IAnhydriteMonitoring, OwnableManager, ServerBloc
         return this.onERC721Received.selector;
     }
 
-    // Internal utility functions for managing server blocking status.
+    /**
+     * This internal function checks whether a server exists.
+     * @param serverAddress: The address of the server.
+     */
     function _isServer(address serverAddress) internal override view virtual returns (bool) {
         return servers[serverAddress];
     }
     
+    /**
+     * This internal function checks whether a server is blocked.
+     * @param serverAddress: The address of the server.
+     */
     function _isBlocked(address serverAddress) internal override view virtual returns (bool) {
         return serversInfo[serverAddress].isBlocked;
     }
 
+    /**
+     * This internal function sets a server as blocked.
+     * @param serverAddress: The address of the server.
+     */
     function _setBlocked(address serverAddress) internal override virtual {
         serversInfo[serverAddress].isBlocked = true;
     }
