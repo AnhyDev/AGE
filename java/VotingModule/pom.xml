@@ -4,4 +4,118 @@
   <artifactId>VotingModule</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>VotingModule</name>
+  <build>
+	<sourceDirectory>src</sourceDirectory>
+	<resources>
+		<resource>
+			<directory>src</directory>
+				<excludes>
+					<exclude>**/*.java</exclude>
+				</excludes>
+		</resource>
+	</resources>
+	<plugins>
+		<plugin>
+			<artifactId>maven-compiler-plugin</artifactId>
+			<version>3.8.1</version>
+				<configuration>
+					<release>11</release>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>2.1</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<transformers>
+								<transformer
+									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<mainClass>ink.anh.anhydrite.modules.VotingModule</mainClass>
+									</transformer>
+								</transformers>
+								<filters>
+									<filter>
+										<artifact>*:*</artifact>
+										<excludes>
+											<exclude>META-INF/*.SF</exclude>
+											<exclude>META-INF/*.DSA</exclude>
+											<exclude>META-INF/*.RSA</exclude>
+										</excludes>
+									</filter>
+								</filters>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+        <plugin>
+            <groupId>org.web3j</groupId>
+            <artifactId>web3j-maven-plugin</artifactId>
+            <version>4.10.0</version>
+            <configuration>
+                <soliditySourceFiles>
+                    <directory>src/solidity</directory>
+                    <includes>
+                        <include>**/*.sol</include>
+                    </includes>
+                </soliditySourceFiles>
+                <packageName>ink.anh.anhydrite.modules</packageName>
+            </configuration>
+        </plugin>
+		</plugins>
+	</build>
+
+ <repositories>
+	    
+ </repositories>
+ <dependencies>
+	 <!-- https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc -->
+	<dependency>
+    	<groupId>org.xerial</groupId>
+    	<artifactId>sqlite-jdbc</artifactId>
+   		<version>3.42.0.0</version>
+	</dependency>
+
+	 <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+	<dependency>
+    	<groupId>com.google.code.gson</groupId>
+    	<artifactId>gson</artifactId>
+    	<version>2.10.1</version>
+	</dependency>
+
+	<!-- https://mvnrepository.com/artifact/org.web3j/core -->
+	<dependency>
+		<groupId>org.web3j</groupId>
+		<artifactId>core</artifactId>
+		<version>4.10.0</version>
+	</dependency>
+	
+	 <!-- https://mvnrepository.com/artifact/org.web3j/crypto -->
+	<dependency>
+		<groupId>org.web3j</groupId>
+		<artifactId>crypto</artifactId>
+		<version>4.10.0</version>
+	</dependency>
+	
+	<!-- https://mvnrepository.com/artifact/org.web3j/utils -->
+	<dependency>
+		<groupId>org.web3j</groupId>
+		<artifactId>utils</artifactId>
+		<version>4.10.0</version>
+	</dependency>
+
+	<!-- https://mvnrepository.com/artifact/org.web3j/contracts -->
+	<dependency>
+    	<groupId>org.web3j</groupId>
+    	<artifactId>contracts</artifactId>
+    	<version>4.10.0</version>
+	</dependency>
+
+ </dependencies>
+
 </project>
