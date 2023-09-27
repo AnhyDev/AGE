@@ -50,6 +50,8 @@ abstract contract BaseUtility {
     // Proxy contract interface
     IProxy private _proxy;
 
+    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+
     // Returns the Ethereum address of the proxy contract.
     function getProxyAddress() public view returns (address) {
         return address(_proxy);
@@ -183,6 +185,9 @@ abstract contract Ownable is BaseUtility {
  */
 abstract contract VoteUtility is Ownable {
 
+    // Enum for vote result clarity
+    enum VoteResultType { None, Approved, Rejected }
+
     // Voting structure
     struct VoteResult {
         address[] isTrue;
@@ -220,26 +225,60 @@ abstract contract VoteUtility is Ownable {
 
     /*
      * Internal Function: _votes
-     * - Purpose: Records a vote for a given voting result and returns vote counts.
+     * - Purpose: Records an individual vote, updates the overall vote counts, and evaluates the current voting outcome.
      * - Arguments:
-     *   - result: The voting result to update.
-     *   - vote: Boolean representing the vote (true for upvote, false for downvote).
+     *   - result: The VoteResult storage object that tracks the current state of both favorable ("true") and opposing ("false") votes.
+     *   - vote: A Boolean value representing the stance of the vote (true for in favor, false for against).
      * - Returns:
-     *   - Number of upvotes.
-     *   - Number of downvotes.
-     *   - Total number of owners.
+     *   - The number of favorable votes.
+     *   - The number of opposing votes.
+     *   - An enum (VoteResultType) that represents the current status of the voting round based on the accumulated favorable and opposing votes.
      */
-    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
-        uint256 _totalOwners = 1;
-        if (address(_proxyContract()) != address(0)) {
-            _totalOwners = _proxyContract().getTotalOwners();
-        } 
+    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, VoteResultType) {
         if (vote) {
             result.isTrue.push(msg.sender);
         } else {
             result.isFalse.push(msg.sender);
         }
-        return (result.isTrue.length, result.isFalse.length, _totalOwners);
+        uint256 votestrue = result.isTrue.length;
+        uint256 votesfalse = result.isFalse.length;
+        return (votestrue, votesfalse, _voteResult(votestrue, votesfalse));
+    }
+
+    /*
+     * Internal Function: _voteResult
+     * - Purpose: Evaluates the outcome of a voting round based on the current numbers of favorable and opposing votes.
+     * - Arguments:
+     *   - votestrue: The number of favorable votes.
+     *   - votesfalse: The number of opposing votes.
+     * - Returns:
+     *   - An enum (VoteResultType) representing the voting outcome: None if the vote is still inconclusive, Approved if the vote meets or exceeds a 60% approval rate, and Rejected if the opposing votes exceed a 40% threshold.
+     */
+    function _voteResult(uint256 votestrue, uint256 votesfalse) private view returns (VoteResultType) {
+        VoteResultType result = VoteResultType.None;
+        uint256 VOTE_THRESHOLD_FOR = 60;
+        uint256 VOTE_THRESHOLD_AGAINST = 40;
+        if (votestrue * 100 >= _totalOwners() * VOTE_THRESHOLD_FOR) {
+            result = VoteResultType.Approved;
+        } else if (votesfalse * 100 > _totalOwners() * VOTE_THRESHOLD_AGAINST) {
+            result = VoteResultType.Rejected;
+        }
+        return result;
+    }
+
+    /*
+     * Internal Function: _totalOwners
+     * - Purpose: Calculates the total number of owners, taking into account any proxy owners if present.
+     * - Arguments: None
+     * - Returns:
+     *   - An unsigned integer representing the total number of owners.
+     */
+    function _totalOwners() private view returns (uint256) {
+        uint256 _tOwners = 1;
+        if (address(_proxyContract()) != address(0)) {
+            _tOwners = _proxyContract().getTotalOwners();
+        }
+        return _tOwners;
     }
 
     // Internal function to reset the voting result to its initial state
@@ -350,7 +389,7 @@ abstract contract FinanceManager is Ownable {
      * @dev Internal function to get the recipient address for withdrawals.
      * @return The address to which assets should be withdrawn.
      */
-    function _recepient() internal view returns (address) {
+    function _recepient() private view returns (address) {
         address recepient = owner();
         if (address(_proxyContract()) != address(0)) {
             recepient = _proxyContract().implementation();
@@ -374,11 +413,11 @@ abstract contract FinanceManager is Ownable {
 abstract contract TokenManager is VoteUtility {
 
     // Suggested recipient address
-    address internal _proposedTransferRecepient;
+    address private _proposedTransferRecepient;
     // Offered number of tokens to send
-    uint256 internal _proposedTransferAmount;
+    uint256 private _proposedTransferAmount;
     // Structure for counting votes
-    VoteResult internal _votesForTransfer;
+    VoteResult private _votesForTransfer;
 
     // Event about the fact of voting, parameters: voter, recipient, amount, vote
     event VotingForTransfer(address indexed voter, address recepient, uint256 amount, bool vote);
@@ -407,23 +446,23 @@ abstract contract TokenManager is VoteUtility {
     }
 
     // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
-    function _voteForTransfer(bool vote) internal hasNotVoted(_votesForTransfer) {
+    function _voteForTransfer(bool vote) private hasNotVoted(_votesForTransfer) {
         require(_proposedTransferAmount != 0, "TokenManager: There is no active voting on this issue");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForTransfer, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForTransfer, vote);
 
         emit VotingForTransfer(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        if (result == VoteResultType.Approved) {
             _transferFor(_proposedTransferRecepient, _proposedTransferAmount);
             _completionVotingTransfer(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
+        } else if (result == VoteResultType.Rejected) {
             _completionVotingTransfer(vote, votestrue, votesfalse);
         }
     }
 
     // Completion of voting
-    function _completionVotingTransfer(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+    function _completionVotingTransfer(bool vote, uint256 votestrue, uint256 votesfalse) private {
          emit VotingTransferCompleted(msg.sender, _proposedTransferRecepient, _proposedTransferAmount, vote, votestrue, votesfalse);
         _completionVoting(_votesForTransfer);
         _proposedTransferRecepient = address(0);
@@ -464,20 +503,20 @@ abstract contract TokenManager is VoteUtility {
 abstract contract ProxyManager is VoteUtility {
 
     // A new smart contract proxy address is proposed
-    address internal _proposedProxy;
+    address private _proposedProxy;
     // Structure for counting votes
-    VoteResult internal _votesForNewProxy;
+    VoteResult private _votesForNewProxy;
 
     // Event about the fact of voting, parameters: voter, proposedProxy, vote
-    event VotingForNewProxy(address indexed voter, address proposedProxy, bool vote);
+    event VotingForNewProxy(address indexed voter, address indexed proposedProxy, bool vote);
     // Event about the fact of making a decision on voting, parameters: voter, proposedProxy, vote, votesFor, votesAgainst
-    event VotingNewProxyCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
+    event VotingNewProxyCompleted(address indexed voter, address indexed oldProxy, address indexed newProxy, bool vote, uint votesFor, uint votesAgainst);
     // Event to close a poll that has expired
     event CloseVoteForNewProxy(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
     // Voting start initiation, parameters: proposedNewProxy
     function initiateNewProxy(address proposedNewProxy) public onlyOwner {
-        require(!_isActiveForVoteNewProxy(), "ProxyManager: voting is already activated");
+        require(_proposedProxy == address(0), "ProxyManager: voting is already activated");
         require(_checkIProxyContract(proposedNewProxy), "ProxyManager: This address does not represent a contract that implements the IProxy interface.");
 
         _proposedProxy = proposedNewProxy;
@@ -490,25 +529,26 @@ abstract contract ProxyManager is VoteUtility {
         _voteForNewProxy(vote);
     }
 
-    // Votes must reach a 70% threshold to pass. If over 30% are downvotes, the measure fails.
-    function _voteForNewProxy(bool vote) internal hasNotVoted(_votesForNewProxy) {
-        require(_isActiveForVoteNewProxy(), "ProxyManager: there are no votes at this address");
+    // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
+    function _voteForNewProxy(bool vote) private hasNotVoted(_votesForNewProxy) {
+        require(_proposedProxy != address(0), "ProxyManager: there are no votes at this address");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewProxy, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewProxy, vote);
 
         emit VotingForNewProxy(msg.sender, _proposedProxy, vote);
 
-        if (votestrue * 100 >= _totalOwners * 70) {
+        if (result == VoteResultType.Approved) {
+            address oldProxy = address(_proxyContract());
             _setProxyContract(_proposedProxy);
-            _completionVotingNewProxy(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 30) {
-            _completionVotingNewProxy(vote, votestrue, votesfalse);
+            _completionVotingNewProxy(oldProxy, vote, votestrue, votesfalse);
+        } else if (result == VoteResultType.Rejected) {
+            _completionVotingNewProxy(address(_proxyContract()), vote, votestrue, votesfalse);
         }
     }
     
     // Completion of voting
-    function _completionVotingNewProxy(bool vote, uint256 votestrue, uint256 votesfalse) internal {
-        emit VotingNewProxyCompleted(msg.sender, _proposedProxy, vote, votestrue, votesfalse);
+    function _completionVotingNewProxy(address oldProxy, bool vote, uint256 votestrue, uint256 votesfalse) private {
+        emit VotingNewProxyCompleted(oldProxy, msg.sender, _proposedProxy, vote, votestrue, votesfalse);
         _completionVoting(_votesForNewProxy);
         _proposedProxy = address(0);
     }
@@ -523,13 +563,8 @@ abstract contract ProxyManager is VoteUtility {
 
     // A function for obtaining information about the status of voting
     function getActiveForVoteNewProxy() external view returns (address) {
-        require(_isActiveForVoteNewProxy(), "ProxyManager: re is no active voting");
+        require(_proposedProxy != address(0), "ProxyManager: re is no active voting");
         return _proposedProxy;
-    }
-
-    // Function to check if the proposed address is valid
-    function _isActiveForVoteNewProxy() internal view returns (bool) {
-        return _proposedProxy != address(0) && _proposedProxy !=  address(_proxyContract());
     }
 }
 
@@ -549,20 +584,20 @@ abstract contract ProxyManager is VoteUtility {
 abstract contract OwnableManager is VoteUtility {
 
     // Proposed new owner
-    address internal _proposedOwner;
+    address private _proposedOwner;
     // Structure for counting votes
-    VoteResult internal _votesForNewOwner;
+    VoteResult private _votesForNewOwner;
 
     // Event about the fact of voting, parameters: voter, proposedOwner, vote
     event VotingForOwner(address indexed voter, address proposedOwner, bool vote);
     // Event about the fact of making a decision on voting, parameters: voter, proposedOwner, vote, votesFor, votesAgainst
-    event VotingOwnerCompleted(address indexed voter, address proposedOwner, bool vote, uint votesFor, uint votesAgainst);
+    event VotingOwnerCompleted(address indexed voter, address indexed newOwner, bool vote, uint votesFor, uint votesAgainst);
     // Event to close a poll that has expired
     event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
 
     // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
     function transferOwnership(address proposedOwner) public onlyOwner {
-        require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
+        require(_proposedOwner == address(0), "OwnableManager: voting is already activated");
         if (address(_proxyContract()) != address(0)) {
             require(!_proxyContract().isBlacklisted(proposedOwner), "OwnableManager: this address is blacklisted");
             require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
@@ -579,23 +614,23 @@ abstract contract OwnableManager is VoteUtility {
     }
 
     // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
-    function _voteForNewOwner(bool vote) internal hasNotVoted(_votesForNewOwner) {
-        require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
+    function _voteForNewOwner(bool vote) private hasNotVoted(_votesForNewOwner) {
+        require(_proposedOwner != address(0), "OwnableManager: there are no votes at this address");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewOwner, vote);
 
         emit VotingForOwner(msg.sender, _proposedOwner, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        if (result == VoteResultType.Approved) {
             _transferOwnership(_proposedOwner);
             _completionVotingNewOwner(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
+        } else if (result == VoteResultType.Rejected) {
             _completionVotingNewOwner(vote, votestrue, votesfalse);
         }
     }
     
     // Completion of voting
-    function _completionVotingNewOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+    function _completionVotingNewOwner(bool vote, uint256 votestrue, uint256 votesfalse) private {
         emit VotingOwnerCompleted(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
         _completionVoting(_votesForNewOwner);
         _proposedOwner = address(0);
@@ -611,111 +646,139 @@ abstract contract OwnableManager is VoteUtility {
 
     // Check if voting is enabled for new contract owner and their address.
     function getActiveForVoteOwner() external view returns (address) {
-        require(_isActiveForVoteOwner(), "OwnableManager: re is no active voting");
+        require(_proposedOwner != address(0), "OwnableManager: re is no active voting");
         return _proposedOwner;
-    }
-
-    // Function to check if the proposed Owner address is valid
-    function _isActiveForVoteOwner() internal view returns (bool) {
-        return _proposedOwner != address(0) && _proposedOwner !=  owner();
     }
 }
 
 
 /*
- * This abstract contract extends the UtilityVotingAndOwnable contract to manage a whitelist of smart contract addresses.
+ * This abstract contract extends the VoteUtility contract to manage a whitelist of smart contract addresses.
  * Key features include:
- * 1. Initiating a proposal to allow or disallow a smart contract address.
- * 2. Allowing current proxy owners to vote on whether the proposed smart contract address should be whitelisted.
- * 3. Voting must reach a 60% threshold for the smart contract address to be whitelisted.
- * 4. Automatic failure of the proposal if over 40% of the votes are against it.
- * 5. Events to log the voting process and final decision for auditing and transparency.
- * 6. Functionality to manually close an open vote that has been pending for more than three days without a conclusive decision.
- * 7. Utility functions to check if the proposed contract address is valid, if there's an active vote, and if an address is whitelisted.
- * 8. Checks that the proposed smart contract implements the IANHReceiver interface.
+ * 1. Initiating a proposal to either allow or disallow a smart contract address, done by an owner.
+ * 2. Allowing current owners to vote on the proposal to either whitelist or delist the smart contract address.
+ * 3. Employing a two-stage vote verification mechanism that checks whether the voter is an owner and hasn't voted before.
+ * 4. Voting must reach a 60% threshold for the proposed smart contract address to be whitelisted or delisted.
+ * 5. Automatic failure of the proposal if over 40% of the votes are against it.
+ * 6. Detailed event logs for each stage of the voting process, enhancing auditing and transparency.
+ * 7. Functionality to manually close an open vote if the required threshold isn't met within a predefined time frame.
+ * 8. Utility functions to query the status of a proposed contract address, check for an active vote, and verify if an address is whitelisted.
+ * 9. Implements an interface check to ensure that the proposed smart contract adheres to the IERC20Receiver interface, but only for addition to the whitelist.
+ * 10. Internal helper functions to streamline and modularize code for better maintainability and upgradeability.
  */
 abstract contract WhiteListManager is VoteUtility {
 
-    // Whitelist
+    // Stores the whitelist status of each address
     mapping(address => bool) internal _whiteList;
-    // A new smart contract proxy address is proposed
-    address internal _proposedContract;
-    // Structure for counting votes
-    VoteResult internal _votesForAllowContract;
 
-    // Event about the fact of voting, parameters: voter, proposedProxy, vote
-    event VotingForAllowContract(address indexed voter, address proposedProxy, bool vote);
-    // Event about the fact of making a decision on voting, parameters: voter, proposedProxy, vote, votesFor, votesAgainst
-    event VotingAllowContractCompleted(address indexed voter, address proposedProxy, bool vote, uint votesFor, uint votesAgainst);
-    // Event to close a poll that has expired
-    event CloseVoteForAllowContract(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
+    // Proposed new contract address for whitelist operations (either addition or removal)
+    address private _proposedContract;
 
-    // Voting start initiation, parameters: proposedNewProxy
-    function initiateAllowContract(address proposedContract) public onlyOwner {
-        require(!_isActiveForVoteAllowContract(), "WhiteListManager: voting is already activated");
-        require(_or1820RegistryReturnIERC20Received(proposedContract) ||
-            IERC165(proposedContract).supportsInterface(type(IERC20Receiver).interfaceId), 
-            "WhiteListManager: This address does not represent a contract that implements the IANHReceiver interface.");
+    // Structure holding the voting details for a proposed contract
+    VoteResult private _votesForContract;
+
+    // Indicates whether the operation is an addition (1) or removal (2)
+    uint256 private _addOrDelete;
+
+    // Event fired when a vote to allow a contract is initiated
+    event VotingForWhiteListContract(address indexed voter, address proposedContract, bool vote);
+
+    // Event fired when a vote to allow a contract is completed
+    event VotingAllowContractCompleted(address indexed voter, address addedContract, bool vote, uint votesFor, uint votesAgainst);
+    // Event fired when a vote to remove a contract is completed
+    event VotingDeleteContractCompleted(address indexed voter, address deleteContract, bool vote, uint votesFor, uint votesAgainst);
+
+    // Event fired to close an expired poll to remove a contract
+    event CloseVoteForWhiteList(address indexed decisiveVote, address indexed votingObject, uint votesFor, uint votesAgainst);
+
+    // Function to initiate a new voting round for whitelist changes
+    function initiateVoteWhiteList(address proposedContract) public onlyOwner {
+        require(_proposedContract == address(0), "WhiteListManager: voting is already activated");
+        
+        if (!_whiteList[proposedContract]) {
+            // Checks if the proposed contract adheres to the IERC20Receiver interface
+            require(proposedContract.code.length > 0 &&
+                (_or1820RegistryReturnIERC20Received(proposedContract) ||
+                    IERC165(proposedContract).supportsInterface(type(IERC20Receiver).interfaceId)), 
+                        "WhiteListManager: This address does not represent a contract that implements the IANHReceiver interface.");
+            _addOrDelete = 1;
+        }
 
         _proposedContract = proposedContract;
-        _votesForAllowContract = VoteResult(new address[](0), new address[](0), block.timestamp);
-        _voteForAllowContract(true);
+        _votesForContract = VoteResult(new address[](0), new address[](0), block.timestamp);
+        
+        // Cast an initial vote
+        _voteForContract(true);
     }
 
+    // Helper function to check if a contract implements IERC20Received
     function _or1820RegistryReturnIERC20Received(address contractAddress) internal view virtual returns (bool);
 
-    // Vote
-    function voteForAllowContract(bool vote) external onlyOwner {
-        _voteForAllowContract(vote);
+    // Public function to allow owners to cast their votes
+    function voteForWhiteList(bool vote) external onlyOwner {
+        _voteForContract(vote);
     }
 
-    // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
-    function _voteForAllowContract(bool vote) internal hasNotVoted(_votesForAllowContract) {
-        require(_isActiveForVoteAllowContract(), "WhiteListManager: there are no votes at this address");
+    // Internal function to handle the vote casting and evaluation logic
+    function _voteForContract(bool vote) private hasNotVoted(_votesForContract) {
+        require(_proposedContract != address(0), "WhiteListManager: there are no votes at this address");
 
-        (uint votestrue, uint votesfalse, uint256 _totalOwners) = _votes(_votesForAllowContract, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForContract, vote);
 
-        emit VotingForAllowContract(msg.sender, _proposedContract, vote);
+        // Emit appropriate voting event
+        emit VotingForWhiteListContract(msg.sender, _proposedContract, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        // Evaluate if the voting has met either pass or fail conditions
+        if (result == VoteResultType.Approved) {
             _whiteList[_proposedContract] = !_whiteList[_proposedContract];
-            _completionVotingAllowContract(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
-            _completionVotingAllowContract(vote, votestrue, votesfalse);
+            _completionVotingWhiteList(vote, votestrue, votesfalse);
+        } else if (result == VoteResultType.Rejected) {
+            _completionVotingWhiteList(vote, votestrue, votesfalse);
         }
     }
     
-    // Completion of voting
-    function _completionVotingAllowContract(bool vote, uint256 votestrue, uint256 votesfalse) internal {
-        emit VotingAllowContractCompleted(msg.sender, _proposedContract, vote, votestrue, votesfalse);
-        _completionVoting(_votesForAllowContract);
+    // Internal function to finalize the voting round and apply the changes if applicable
+    function _completionVotingWhiteList(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        // Emit appropriate completion event
+        if (_addOrDelete == 1) {
+            emit VotingAllowContractCompleted(msg.sender, _proposedContract, vote, votestrue, votesfalse);
+        } else {
+            emit VotingDeleteContractCompleted(msg.sender, _proposedContract, vote, votestrue, votesfalse);
+        }
+
+        // Reset voting variables for the next round
+        _completionVoting(_votesForContract);
         _proposedContract = address(0);
+        _addOrDelete = 0;
     }
 
-    // A function to close a vote on which a decision has not been made for three or more days
-    function closeVoteForAllowContract() public onlyOwner {
+    // Public function to manually close a voting round that has expired without a decision
+    function closeVoteForWhiteList() public onlyOwner {
         require(_proposedContract != address(0), "WhiteListManager: There is no open vote");
-        emit CloseVoteForAllowContract(msg.sender, _proposedContract, _votesForAllowContract.isTrue.length, _votesForAllowContract.isFalse.length);
-        _closeVote(_votesForAllowContract);
+
+        // Emit appropriate closing event
+        emit CloseVoteForWhiteList(
+                msg.sender, _proposedContract, _votesForContract.isTrue.length, _votesForContract.isFalse.length
+        );
+
+        // Reset voting variables for the next round
+        _closeVote(_votesForContract);
         _proposedContract = address(0);
+        _addOrDelete = 0;
     }
 
-    // A function for obtaining information about the status of voting
-    function getActiveForVoteAllowContract() external view returns (address, bool) {
-        require(_isActiveForVoteAllowContract(), "WhiteListManager: re is no active voting");
-        return (_proposedContract, !_whiteList[_proposedContract]);
+    // Function to get details of the active vote (if any)
+    function getActiveForVoteWhiteList() external view returns (address, bool, string memory) {
+        require(_proposedContract != address(0), "WhiteListManager: There is no active voting");
+        return (_proposedContract, !_whiteList[_proposedContract], _addOrDelete == 1 ? "Add" : "Delete");
     }
 
-    // Is the address whitelisted
+    // Function to check if a given address is whitelisted
     function isinWhitelist(address contractAddress) external view returns (bool) {
         return _whiteList[contractAddress];
     }
-
-    // Function to check if the proposed address is valid
-    function _isActiveForVoteAllowContract() internal view returns (bool) {
-        return _proposedContract != address(0);
-    }
 }
+
 
 
 // Declares an abstract contract ERC165 that implements the IERC165 interface
@@ -770,12 +833,10 @@ interface IERC20Receiver {
  *   - ReturnOfThisToken: Logs when tokens are received from this contract itself.
  * 
  */
-abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
+abstract contract ERC20ReceiverToken is IERC20Receiver, BaseUtility, ERC20Burnable, ERC165 {
 
     // The magic identifier for the ability in the external contract to cancel the token acquisition transaction
-    bytes4 internal ERC20ReceivedMagic;
-
-    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+    bytes4 private ERC20ReceivedMagic;
 
     // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
     event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
@@ -786,11 +847,8 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
 
 
     constructor() {
-        supportedInterfaces[type(IERC20).interfaceId] = true;
-        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
-
         ERC20ReceivedMagic = IERC20Receiver(address(this)).onERC20Received.selector;
-        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
+        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
     }
 
@@ -831,8 +889,10 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
                     // No need to change returnValue, it's already set to fakeID 
                 }
             }
+            return returnValue;
+        } else {
+            revert ("ERC20Receiver: This function is for handling token acquisition");
         }
-        return returnValue;
     }
 
     // An abstract function for implementing a whitelist to handle trusted contracts with special logic.
@@ -911,7 +971,7 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
     }
 
     /*
-     * Public View Function: or1820RegistryReturnsIERC20Received
+     * Public View Function: check1820Registry
      * - Purpose: External interface for checking if a contract implements the IERC20Receiver interface via the ERC1820 registry.
      * - Arguments:
      *   - contractAddress: The address of the contract to check.
@@ -919,26 +979,9 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, ERC165 {
      * - Returns:
      *   - A boolean indicating the ERC1820 compliance of the contract.
      */
-    function or1820RegistryReturnsIERC20Received(address contractAddress) external view returns (bool) {
+    function check1820RegistryIERC20Received(address contractAddress) external view returns (bool) {
         return _or1820RegistryReturnIERC20Received(contractAddress);
     }
-
-    /*
-     * Public View Function: checkERC20Received
-     * - Purpose: Checks and returns the whitelist and ERC1820 registry status of a contract.
-     * - Arguments:
-     *   - contractAddress: The address of the contract to check.
-     * 
-     * - Returns:
-     *   - Two strings representing the whitelist and ERC1820 status ("WhiteList"/"false" and "1820Registry"/"false").
-     */
-    function checkERC20Received(address contractAddress) external view returns (string memory, string memory) {
-        string memory checkWhiteList = _checkWhitelist(contractAddress) ? "WhiteList" : "false";
-        string memory check1820Registry = erc1820Registry.getInterfaceImplementer(
-            contractAddress, keccak256("IERC20Receiver")) == contractAddress ? "1820Registry" : "false";
-        return (checkWhiteList, check1820Registry);
-    }
-
 
     /*
      * Overridden Function: _afterTokenTransfer
@@ -988,21 +1031,18 @@ interface IERC1820Registry {
  *   - `_transferFor`: Checks and performs token transfers, and mints new tokens if necessary, but not exceeding max supply.
  *   - `_mint`: Enforces the max supply limit when minting tokens.
  */
-contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager, OwnableManager, WhiteListManager {
+contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, ProxyManager, OwnableManager, WhiteListManager {
 
     // Sets the maximum allowed supply of tokens is 360 million
-    uint256 private constant MAX_SUPPLY = 360000000 * 10 ** 18;
+    uint256 constant public MAX_SUPPLY = 360000000 * 10 ** 18;
 
     constructor() ERC20("Anhydrite", "ANH") {
-        _mint(address(this), 70000000 * 10 ** decimals());
         _whiteList[address(this)] = true;
+        
+        supportedInterfaces[type(IERC20).interfaceId] = true;
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IANH"), address(this));
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
    }
-
-    // Returns the maximum token supply allowed
-    function getMaxSupply() public pure returns (uint256) {
-        return MAX_SUPPLY;
-    }
 
     // Sending tokens on request from the smart contract proxy to its address
     function transferForProxy(uint256 amount) public {
@@ -1021,6 +1061,14 @@ contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager,
         } else {
             revert("Anhydrite: Cannot transfer or mint the requested amount");
         }
+    }
+
+    /*
+     * Public function to check if an address is on the whitelist.
+     * It returns a boolean value indicating the whitelist status of the given address `checked`.
+     */
+    function checkWhitelist(address checked) public view returns (bool) {
+        return _whiteList[checked];
     }
 
     /*
@@ -1048,8 +1096,8 @@ contract Anhydrite is ERC20Receiver, FinanceManager, TokenManager, ProxyManager,
      * as indicated by the `override(WhiteListManager, ERC20Receiver)` keyword.
      * It returns a boolean value that dictates the behavior for handling incoming ERC20 tokens.
      */
-    function _or1820RegistryReturnIERC20Received(address contractAddress) internal override(WhiteListManager, ERC20Receiver) 
+    function _or1820RegistryReturnIERC20Received(address contractAddress) internal override(WhiteListManager, ERC20ReceiverToken) 
       view returns (bool) {
-        return ERC20Receiver._or1820RegistryReturnIERC20Received(contractAddress);
+        return ERC20ReceiverToken._or1820RegistryReturnIERC20Received(contractAddress);
     }
 }

@@ -28,17 +28,16 @@
  */
 pragma solidity ^0.8.19;
 
-//import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title BaseUtil Contract
  * @dev This is an abstract contract that provides utility functions for interaction with the Anhydrite (ANH) and its proxy contract.
- * It's meant to be inherited by other contracts that require access to the proxy contract owners and their voting rights.
+ * It's meant to be inherited by other contracts.
  *
  * Functions:
  * - _getProxyAddress: Returns the proxy contract address from the Anhydrite contract.
@@ -46,22 +45,30 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 abstract contract BaseUtility {
     
-    // Main project token (ANH) address
-    IANH internal constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
+    // Address of the Main project token (ANH)
+    IANH public constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
 
+    // Address of the ERC-1820 Registry
     IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
-    // Returns an instance of the proxy contract.
+    /**
+    * @notice Returns an instance of the proxy contract.
+    * @dev Creates and returns an instance of the proxy contract using the address obtained from _getProxyAddress function.
+    * @return IProxy An instance of the proxy contract.
+    */
     function _proxyContract() internal view returns(IProxy) {
         return IProxy(_getProxyAddress());
     }
 
-    // Returns the proxy contract address from the Anhydrite contract.
+    /**
+    * @notice Returns the proxy contract address from the Anhydrite contract.
+    * @dev Retrieves and returns the address of the proxy contract by calling getProxyAddress function of the ANHYDRITE contract.
+    * @return address The address of the proxy contract.
+    */
     function _getProxyAddress() private view returns (address) {
         return ANHYDRITE.getProxyAddress();
     }
 }
-
 // Interface for interacting with the Anhydrite contract.
 interface IANH is IERC20 {
     // Returns the interface address of the proxy contract
@@ -74,37 +81,69 @@ interface IANH is IERC20 {
 interface IProxy {
     // Returns the address of the current implementation (logic contract)
     function implementation() external view returns (address);
-    // Returns the total number of owners
-    function isProxyOwner(address tokenAddress) external view returns (bool);
-    // Checks if the contract is stopped
+    // Checks and returns whether the contract is stopped or not
     function isStopped() external view returns (bool);
-
-// interface IAGE 
-    function getPrice(string memory name) external view returns (uint256);
+   
+   // Functions delegated to the implementation contract
+   
+    // Gets the price associated with the given name from the implementation contract.
+    function getPrice(string memory name) external view returns (uint256); 
 }
 
-abstract contract FinanceManager is Ownable {
+/**
+ * @title FinanceManager
+ * @dev The FinanceManager contract is an abstract contract that extends Ownable.
+ * It provides a mechanism to transfer Ether, ERC20 tokens, and ERC721 tokens from
+ * the contract's balance, accessible only by the owner.
+ */
+abstract contract FinanceManager is Ownable, IERC721Receiver {
 
-   /// @notice Function for transferring Ether
+    /**
+     * @notice Transfers Ether from the contract's balance to a specified recipient.
+     * @dev Can only be called by the contract owner.
+     * @param recipient The address to receive the transferred Ether.
+     * @param amount The amount of Ether to be transferred in wei.
+     */
     function transferMoney(address payable recipient, uint256 amount) external onlyOwner {
         require(address(this).balance >= amount, "FinanceManager: Contract has insufficient balance");
+        require(recipient != address(0), "FinanceManager: Recipient address is the zero address");
         recipient.transfer(amount);
     }
-
-    /// @notice Function for transferring ERC20 tokens
+    
+    /**
+     * @notice Transfers ERC20 tokens from the contract's balance to a specified address.
+     * @dev Can only be called by the contract owner.
+     * @param _tokenAddress The address of the ERC20 token contract.
+     * @param _to The recipient address to receive the transferred tokens.
+     * @param _amount The amount of tokens to be transferred.
+     */
     function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
         require(token.balanceOf(address(this)) >= _amount, "FinanceManager: Not enough tokens on contract balance");
         token.transfer(_to, _amount);
     }
 
-    /// @notice Function for transferring ERC721 tokens
+    /**
+     * @notice Transfers an ERC721 token from the contract's balance to a specified address.
+     * @dev Can only be called by the contract owner.
+     * @param _tokenAddress The address of the ERC721 token contract.
+     * @param _to The recipient address to receive the transferred token.
+     * @param _tokenId The unique identifier of the token to be transferred.
+     */
     function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external onlyOwner {
         IERC721 token = IERC721(_tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "FinanceManager: The contract is not the owner of this token");
         token.safeTransferFrom(address(this), _to, _tokenId);
     }
 
+    /**
+     * @notice The onERC721Received function is used to process the receipt of ERC721 tokens.
+     */
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+    
+    receive() external payable {}
 }
 
 
@@ -160,7 +199,7 @@ interface IERC20Receiver {
  *   - ReturnOfThisToken: Logs when tokens are received from this contract itself.
  * 
  */
-abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, BaseUtility, ERC165 {
+abstract contract ERC20ReceiverToken is IERC20Receiver, ERC20Burnable, BaseUtility, ERC165 {
 
     // The magic identifier for the ability in the external contract to cancel the token acquisition transaction
     bytes4 private ERC20ReceivedMagic;
@@ -329,24 +368,28 @@ abstract contract ERC20Receiver is IERC20Receiver, ERC20Burnable, BaseUtility, E
         }
     }
 }
-/*
- * IERC1820Registry defines the interface for the ERC1820 Registry contract,
- * which allows contracts and addresses to declare which interface they implement
- * and which smart contract is responsible for its implementation.
+/**
+ * @title IERC1820Registry Interface
+ * @dev This is an interface for the ERC1820 Registry contract, a central registry 
+ *      used to discover which interface a particular address supports.
+ * 
+ *      The ERC1820 standard is a meta-standard that defines a universal registry smart contract 
+ *      where any address (contract or regular account) can indicate which interface it supports.
+ *
+ *      Functions:
+ *      - setInterfaceImplementer: Sets the contract which implements a specific interface for an address.
+ *      - getInterfaceImplementer: Retrieves the address of the contract that implements a specific interface.
  */
 interface IERC1820Registry {
-
-    // Allows `account` to specify `implementer` as the entity that implements
-    // a particular interface identified by `interfaceHash`.
-    // This can only be called by the `account` itself.
     function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
-
-    // Retrieves the address of the contract that implements a specific interface
-    // identified by `interfaceHash` for `account`.
     function getInterfaceImplementer(address account, bytes32 interfaceHash) external view returns (address);
 }
 
 
+/**
+ * @title ICashback Interface
+ * @notice This interface defines the methods related to the management and issuance of cashback rewards.
+ */
 interface ICashback {
     function issueTokens(address _recipient, bytes32 source) external;
     function isAddressApproved(address module) external view returns (bool);
@@ -357,14 +400,24 @@ interface ICashback {
  * @dev This is an abstract contract implementing base functionality for a Cashback system,
  * utilizing an ERC721 based server contract represented by the IServer interface.
  */
-abstract contract Cashback is ICashback, ERC20Receiver, Ownable {
+abstract contract ModuleCashback is ICashback, ERC20ReceiverToken, Ownable {
 
     IServer internal _serverContract;
+    
+    address internal moduleFactory;
 
     //mapping(bytes32 => uint256) internal _cashback;
     mapping(address => bool) internal _approvedTokenRequestAddresses;
 
-    constructor(address serverAddress) {
+    /**
+     * @dev Emitted when the server contract is removed and address approvals are toggled.
+     * @param serverContractAddress Address of the removed server contract.
+     * @param numberOfModifications Number of address approvals that were toggled due to the removal of the server contract.
+     */
+    event ServerContractRemoved(address indexed serverContractAddress, uint256 numberOfModifications);
+
+    constructor(address serverAddress, address factoryContractAddress) {
+        moduleFactory = factoryContractAddress;
         _serverContract = IServer(serverAddress);
         supportedInterfaces[type(ICashback).interfaceId] = true;
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("ICashback"), address(this));
@@ -418,6 +471,32 @@ abstract contract Cashback is ICashback, ERC20Receiver, Ownable {
     }
 
     /**
+     * @dev Dismantles the associations between this contract and the server contract.
+     * The function iterates through all cashback modules linked to the server, and if this contract is approved in any module, 
+     * it revokes its approval. Additionally, all address approvals in this contract are nullified.
+     * This function can only be invoked by the server contract.
+     * 
+     * Requirements:
+     * - The caller must be the server contract.
+     */
+    function dissociateAndCleanUpServerContract() external {
+        require(msg.sender == address(_serverContract), "Cashback: Only the server contract can call this function");
+        
+        IServer.StructCashback[] memory cashbacks = _serverContract.getAllCashbacks();
+        uint256 modifications = 0;
+        for (uint256 i = 0; i < cashbacks.length; i++) {
+            address module = cashbacks[i].contractCashbackAddress;
+            if (_approvedTokenRequestAddresses[module]) {
+                _approvedTokenRequestAddresses[module] = false;
+                modifications++;
+            }
+        }
+        delete _serverContract;
+        IFactory(moduleFactory).removeModule(address(_serverContract));
+        emit ServerContractRemoved(address(_serverContract), modifications);
+    }
+
+    /**
      * @dev Converts a string to a bytes32 hash, used as a key for cashback values.
      * @param source The source string to convert.
      * @return result The resulting bytes32 hash.
@@ -434,53 +513,120 @@ abstract contract Cashback is ICashback, ERC20Receiver, Ownable {
      */
     function _giveTokens(address recipient, uint256 amount) internal virtual;
 }
+interface IFactory {
+    function removeModule(address serverContractAddress) external;
+}
 
 /**
  * @title IServer
- * @dev This is an interface contract inheriting IERC721 and IERC721Metadata interfaces.
- * It represents the contract interface for an ERC721 based server.
+ * @dev Interface to represent the Server contract which manages and provides the cashback data.
  */
 interface IServer is IERC721, IERC721Metadata {
+    struct StructCashback {
+        string name;
+        address contractCashbackAddress;
+        uint256 price;
+    }
+
+    function getAllCashbacks() external view returns (StructCashback[] memory);
     function getCashback(bytes32 source) external view returns (address, uint256);
 }
 
 
+interface IAGEModule {
+    
+    // Enum declaration for ModuleType
+    enum ModuleType {
+        Server,
+        Token,
+        NFT,
+        Shop,
+        Voting,
+        Lottery,
+        Raffle,
+        Game,
+        Advertisement,
+        AffiliateProgram,
+        Event,
+        RatingSystem,
+        SocialFunctions,
+        Auction,
+        Charity
+    }
+
+    // External functions
+    function getServerContract() external view returns (address);
+    function getModuleName() external view returns (string memory);
+    function getModuleType() external view returns (ModuleType);
+    function getModuleTypeString() external view returns (string memory);
+    function getModuleFactory() external view returns (address);
+}
 /**
  * @title CashbackModule
  * @dev This contract extends the abstract Cashback contract, utilizing the ERC20Receiver
  * to implement specific functionality for distributing tokens.
  */
-contract TokenCashback is Cashback, FinanceManager {
+contract TokenCashback is ModuleCashback, FinanceManager, IAGEModule {
+
+    string private constant moduleName = "TokenCashback";
+    ModuleType private constant moduleType = ModuleType.Token;
+    string private constant moduleTypeString = "Token";
     
-    address private _factoryContractAddress;
-    
-    constructor(address serverAddress, address factoryContractAddress) Cashback(serverAddress) ERC20(
-            string(abi.encodePacked("TokenCashback ", _serverContract.name())),
-                string(abi.encodePacked(_serverContract.symbol(), "CT"))) {
+    constructor(address serverAddress, address factoryContractAddress)
+        ModuleCashback(serverAddress, factoryContractAddress)
+            ERC20(string(abi.encodePacked("TokenCashback ", _serverContract.name())),
+                string(abi.encodePacked(_serverContract.symbol(), "TC"))) {
         
-        _factoryContractAddress = factoryContractAddress;
+        supportedInterfaces[type(IAGEModule).interfaceId] = true;
+        supportedInterfaces[type(IERC721Receiver).interfaceId] = true;
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("IAGEModule"), address(this));
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC721Receiver"), address(this));
+
         _mint(owner(), 1000 * 10 ** decimals());
     }
     
     /**
-     * @dev Retrieves the server contract implementing the IServer interface.
-     * @return IServer The server contract.
+     * @notice This function allows external entities to retrieve the address of the server contract
+     * @return The address of the server contract
      */
-    function getServerContract() external view returns (IServer) {
-        return _serverContract;
+    function getServerContract() external view override returns (address) {
+        return address(_serverContract);
     }
 
     /**
-     * @dev Removes the associated server contract. 
-     * Can only be called by the factory contract.
-     * Requirements:
-     * - The caller must be the factory contract.
+     * @dev Get the name of the module.
+     * @return A string representing the name of the module.
      */
-    function removeServerContract() external {
-        require(msg.sender == _factoryContractAddress, "TokenCashback: Only the factory contract can call this function");
-        delete _serverContract;
+    function getModuleName() external pure override returns (string memory) {
+        return moduleName;
     }
 
+    /**
+     * @dev Get the type of the module as an enum value.
+     * @return A ModuleType enum value representing the type of the module.
+     */
+    function getModuleType() external pure override returns (ModuleType) {
+        return moduleType;
+    }
+
+    /**
+     * @dev Get the type of the module as a string.
+     * @return A string representing the type of the module.
+     */
+    function getModuleTypeString() external pure override returns (string memory) {
+        return moduleTypeString;
+    }
+
+    /**
+     * @dev Retrieves the address of the factory contract that deployed this contract.
+     * This function provides transparency and traceability by allowing users to verify
+     * the origin of this contract, enabling them to ensure it was deployed by a legitimate
+     * and trusted factory contract.
+     * @return The address of the factory contract that deployed this contract.
+     */
+    function getModuleFactory() external view override returns (address) {
+        return moduleFactory;
+    }
 
     /**
      * @dev Implements the _giveTokens function to mint tokens to the specified recipient.
@@ -559,17 +705,12 @@ contract FactoryTokenCashback is BaseUtility {
     }
 
     /**
-     * @dev Function to remove a deployed TokenCashback associated with a server contract.
+     * @dev Function to remove a deployed SalesModule associated with a server contract.
      * @param serverContractAddress Address of the associated server contract.
      */
     function removeModule(address serverContractAddress) external {
-        address moduleAddress = isDeploy[serverContractAddress];
-        require(moduleAddress != address(0), "FactoryTokenCashback: Module not deployed for this server");
-    
-        TokenCashback module = TokenCashback(moduleAddress);
-        require(msg.sender == address(module.getServerContract()), "FactoryTokenCashback: Only the associated server contract can call this function");
+        require(msg.sender == isDeploy[serverContractAddress], "FactoryTokenCashback: Module not deployed for this server");
 
-        module.removeServerContract();
         delete isDeploy[serverContractAddress]; 
     }
 
@@ -610,6 +751,10 @@ contract FactoryTokenCashback is BaseUtility {
         }
     
         return result;
+    }
+
+    receive() external payable {
+        payable(_proxyContract().implementation()).transfer(msg.value);
     }
 }
 

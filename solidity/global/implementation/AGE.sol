@@ -32,28 +32,16 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 abstract contract BaseUtility {
 
     // Main project token (ANH) address
-    IANH public constant ANHYDRITE = IANH(0x9a9a0EB311E937C7D75d3468C8b0135d4976DAa7);
+    IANH public constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
 
-    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
-    modifier onlyProxyOwner() {
-        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
-            _checkProxyOwner();
-        } else {
-            _checkOwner();
-        }
-        _;
-    }
-
-    // Returns the interface address of the proxy contract
-    function getProxyAddress() public view returns (address) {
-        return ANHYDRITE.getProxyAddress();
-    }
+    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
     // This function returns the IProxy interface for the Anhydrite token's proxy contract
     function _proxyContract() internal view returns (IProxy) {
@@ -69,7 +57,11 @@ abstract contract BaseUtility {
      * @dev Throws if the sender is not the owner.
      */
     function _checkProxyOwner() internal view virtual {
-        require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxyOwner");
+        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
+            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxyOwner");
+        } else {
+            _checkOwner();
+        }
     }
 
     function _checkOwner() internal view virtual;
@@ -110,14 +102,14 @@ abstract contract Ownable is BaseUtility {
      * @dev Throws if the sender is not the owner.
      */
     function _checkOwner() internal view virtual override {
-        require(owner() == msg.sender, "Ownable: caller is not the owner");
+        require(_owner == msg.sender, "Ownable: caller is not the owner");
     }
 
     /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        _checkOwner();
+        require(_owner == msg.sender, "Ownable: caller is not the owner");
         IProxy proxy = _proxyContract();
         if (address(proxy) != address(0) && proxy.getTotalOwners() > 0) {
             require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxy owner");
@@ -154,6 +146,63 @@ interface IProxy {
 }
 
 
+/**
+ * @title FinanceManager
+ * @dev The FinanceManager contract is an abstract contract that extends Ownable.
+ * It provides a mechanism to transfer Ether, ERC20 tokens, and ERC721 tokens from
+ * the contract's balance, accessible only by the owner.
+ */
+abstract contract FinanceManager is Ownable, IERC721Receiver {
+
+    /**
+     * @notice Transfers Ether from the contract's balance to a specified recipient.
+     * @dev Can only be called by the contract owner.
+     * @param recipient The address to receive the transferred Ether.
+     * @param amount The amount of Ether to be transferred in wei.
+     */
+    function transferMoney(address payable recipient, uint256 amount) external onlyOwner {
+        require(address(this).balance >= amount, "FinanceManager: Contract has insufficient balance");
+        require(recipient != address(0), "FinanceManager: Recipient address is the zero address");
+        recipient.transfer(amount);
+    }
+    
+    /**
+     * @notice Transfers ERC20 tokens from the contract's balance to a specified address.
+     * @dev Can only be called by the contract owner.
+     * @param _tokenAddress The address of the ERC20 token contract.
+     * @param _to The recipient address to receive the transferred tokens.
+     * @param _amount The amount of tokens to be transferred.
+     */
+    function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
+        IERC20 token = IERC20(_tokenAddress);
+        require(token.balanceOf(address(this)) >= _amount, "FinanceManager: Not enough tokens on contract balance");
+        token.transfer(_to, _amount);
+    }
+
+    /**
+     * @notice Transfers an ERC721 token from the contract's balance to a specified address.
+     * @dev Can only be called by the contract owner.
+     * @param _tokenAddress The address of the ERC721 token contract.
+     * @param _to The recipient address to receive the transferred token.
+     * @param _tokenId The unique identifier of the token to be transferred.
+     */
+    function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external onlyOwner {
+        IERC721 token = IERC721(_tokenAddress);
+        require(token.ownerOf(_tokenId) == address(this), "FinanceManager: The contract is not the owner of this token");
+        token.safeTransferFrom(address(this), _to, _tokenId);
+    }
+
+    /**
+     * @notice The onERC721Received function is used to process the receipt of ERC721 tokens.
+     */
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+    
+    receive() external payable {}
+}
+
+
 /*
  * A smart contract serving as a utility layer for voting and ownership management.
  * It extends Ownable contract and interfaces with an external Proxy contract.
@@ -164,6 +213,9 @@ interface IProxy {
  * 4. Renunciation of ownership is explicitly disabled.
  */
 abstract contract VoteUtility is Ownable {
+
+    // Enum for vote result clarity
+    enum VoteResultType { None, Approved, Rejected }
 
     // Voting structure
     struct VoteResult {
@@ -202,26 +254,60 @@ abstract contract VoteUtility is Ownable {
 
     /*
      * Internal Function: _votes
-     * - Purpose: Records a vote for a given voting result and returns vote counts.
+     * - Purpose: Records an individual vote, updates the overall vote counts, and evaluates the current voting outcome.
      * - Arguments:
-     *   - result: The voting result to update.
-     *   - vote: Boolean representing the vote (true for upvote, false for downvote).
+     *   - result: The VoteResult storage object that tracks the current state of both favorable ("true") and opposing ("false") votes.
+     *   - vote: A Boolean value representing the stance of the vote (true for in favor, false for against).
      * - Returns:
-     *   - Number of upvotes.
-     *   - Number of downvotes.
-     *   - Total number of owners.
+     *   - The number of favorable votes.
+     *   - The number of opposing votes.
+     *   - An enum (VoteResultType) that represents the current status of the voting round based on the accumulated favorable and opposing votes.
      */
-    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, uint256) {
-        uint256 _totalOwners = 1;
-        if (address(_proxyContract()) != address(0)) {
-            _totalOwners = _proxyContract().getTotalOwners();
-        } 
+    function _votes(VoteResult storage result, bool vote) internal returns (uint256, uint256, VoteResultType) {
         if (vote) {
             result.isTrue.push(msg.sender);
         } else {
             result.isFalse.push(msg.sender);
         }
-        return (result.isTrue.length, result.isFalse.length, _totalOwners);
+        uint256 votestrue = result.isTrue.length;
+        uint256 votesfalse = result.isFalse.length;
+        return (votestrue, votesfalse, _voteResult(votestrue, votesfalse));
+    }
+
+    /*
+     * Internal Function: _voteResult
+     * - Purpose: Evaluates the outcome of a voting round based on the current numbers of favorable and opposing votes.
+     * - Arguments:
+     *   - votestrue: The number of favorable votes.
+     *   - votesfalse: The number of opposing votes.
+     * - Returns:
+     *   - An enum (VoteResultType) representing the voting outcome: None if the vote is still inconclusive, Approved if the vote meets or exceeds a 60% approval rate, and Rejected if the opposing votes exceed a 40% threshold.
+     */
+    function _voteResult(uint256 votestrue, uint256 votesfalse) private view returns (VoteResultType) {
+        VoteResultType result = VoteResultType.None;
+        uint256 VOTE_THRESHOLD_FOR = 60;
+        uint256 VOTE_THRESHOLD_AGAINST = 40;
+        if (votestrue * 100 >= _totalOwners() * VOTE_THRESHOLD_FOR) {
+            result = VoteResultType.Approved;
+        } else if (votesfalse * 100 > _totalOwners() * VOTE_THRESHOLD_AGAINST) {
+            result = VoteResultType.Rejected;
+        }
+        return result;
+    }
+
+    /*
+     * Internal Function: _totalOwners
+     * - Purpose: Calculates the total number of owners, taking into account any proxy owners if present.
+     * - Arguments: None
+     * - Returns:
+     *   - An unsigned integer representing the total number of owners.
+     */
+    function _totalOwners() private view returns (uint256) {
+        uint256 _tOwners = 1;
+        if (address(_proxyContract()) != address(0)) {
+            _tOwners = _proxyContract().getTotalOwners();
+        }
+        return _tOwners;
     }
 
     // Internal function to reset the voting result to its initial state
@@ -258,29 +344,26 @@ abstract contract VoteUtility is Ownable {
     }
     
     // Internal function to check if an address has already voted in a given VoteResult
-    function _hasOwnerVoted(VoteResult memory result, address targetAddress) internal pure returns (bool) {
+    function _checkOwnerVoted(VoteResult memory result) internal view {
+        bool voted;
         for (uint256 i = 0; i < result.isTrue.length; i++) {
-            if (result.isTrue[i] == targetAddress) {
-                return true;
+            if (result.isTrue[i] == msg.sender) {
+                voted = true;
             }
         }
         for (uint256 i = 0; i < result.isFalse.length; i++) {
-            if (result.isFalse[i] == targetAddress) {
-                return true;
+            if (result.isFalse[i] == msg.sender) {
+                voted = true;
             }
         }
-        return false;
+        if (voted) {
+            revert("VoteUtility: Already voted");
+        }
     }
 
     // Modifier to check if enough time has passed to close the voting
     modifier canClose(uint256 timestamp) {
         require(block.timestamp >= timestamp + 3 days, "VoteUtility: Voting is still open");
-        _;
-    }
-
-    // Modifier to ensure an address has not voted before in a given VoteResult
-    modifier hasNotVoted(VoteResult memory result) {
-        require(!_hasOwnerVoted(result, msg.sender), "VoteUtility: Already voted");
         _;
     }
 }
@@ -299,9 +382,9 @@ abstract contract VoteUtility is Ownable {
  */
 abstract contract OwnableManager is VoteUtility {
     // Proposed new owner
-    address internal _proposedOwner;
+    address private _proposedOwner;
     // Structure for counting votes
-    VoteResult internal _votesForNewOwner;
+    VoteResult private _votesForNewOwner;
 
     // Event about the fact of voting, parameters: voter, proposedOwner, vote
     event VotingForOwner(address indexed voter, address proposedOwner, bool vote);
@@ -311,8 +394,9 @@ abstract contract OwnableManager is VoteUtility {
     event CloseVoteForNewOwner(address indexed decisiveVote, address indexed votingObject, uint256 votesFor, uint256 votesAgainst);
 
     // Overriding the transferOwnership function, which now triggers the start of a vote to change the owner of a smart contract
-    function transferOwnership(address proposedOwner) public onlyProxyOwner {
-        require(!_isActiveForVoteOwner(), "OwnableManager: voting is already activated");
+    function transferOwnership(address proposedOwner) public {
+        _checkProxyOwner();
+        require(_proposedOwner == address(0), "OwnableManager: voting is already activated");
         require(!_proxyContract().isBlacklisted(proposedOwner),"OwnableManager: this address is blacklisted");
         require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
 
@@ -326,22 +410,24 @@ abstract contract OwnableManager is VoteUtility {
     }
 
     // Vote to change the owner of a smart contract
-    function voteForNewOwner(bool vote) external onlyProxyOwner {
+    function voteForNewOwner(bool vote) external {
+        _checkProxyOwner();
         _voteForNewOwner(vote);
     }
 
     // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
-    function _voteForNewOwner(bool vote) internal hasNotVoted(_votesForNewOwner) {
-        require(_isActiveForVoteOwner(), "OwnableManager: there are no votes at this address");
+    function _voteForNewOwner(bool vote) internal {
+        _checkOwnerVoted(_votesForNewOwner);
+        _checkActiveForVote();
 
-        (uint256 votestrue, uint256 votesfalse, uint256 _totalOwners) = _votes(_votesForNewOwner, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewOwner, vote);
 
         emit VotingForOwner(msg.sender, _proposedOwner, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        if (result == VoteResultType.Approved) {
             _transferOwnership(_proposedOwner);
             _completionVotingNewOwner(vote, votestrue, votesfalse);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
+        } else if (result == VoteResultType.Rejected) {
             _completionVotingNewOwner(vote, votestrue, votesfalse);
         }
     }
@@ -354,9 +440,10 @@ abstract contract OwnableManager is VoteUtility {
     }
 
     // A function to close a vote on which a decision has not been made for three or more days
-    function closeVoteForNewOwner() public onlyProxyOwner {
-        require(_proposedOwner != address(0), "OwnableManager: There is no open vote");
-        require(block.timestamp >= _votesForNewOwner.timestamp + 3 days, "BaseUtility: Voting is still open");
+    function closeVoteForNewOwner() public {
+        _checkProxyOwner();
+        _checkActiveForVote();
+        require(block.timestamp >= _votesForNewOwner.timestamp + 3 days, "OwnableManager: Voting is still open");
         emit CloseVoteForNewOwner(msg.sender, _proposedOwner, _votesForNewOwner.isTrue.length, _votesForNewOwner.isFalse.length);
         _resetVote(_votesForNewOwner);
         _proposedOwner = address(0);
@@ -364,13 +451,13 @@ abstract contract OwnableManager is VoteUtility {
 
     // Check if voting is enabled for new contract owner and their address.
     function getActiveForVoteOwner() external view returns (address) {
-        require(_isActiveForVoteOwner(), "OwnableManager: re is no active voting");
+        _checkActiveForVote();
         return _proposedOwner;
     }
 
     // Function to check if the proposed Owner address is valid
-    function _isActiveForVoteOwner() internal view returns (bool) {
-        return _proposedOwner != address(0) && _proposedOwner != owner();
+    function _checkActiveForVote() private view {
+        require(_proposedOwner != address(0), "OwnableManager: re is no active voting");
     }
 }
 
@@ -378,14 +465,14 @@ abstract contract OwnableManager is VoteUtility {
  * The Monitorings smart contract is designed to work with monitoring,
  * add, delete, vote for the server, get the number of votes, and more.
  */
-abstract contract Monitorings is Ownable {
+abstract contract MonitoringManager is Ownable {
     enum ServerStatus {
         NotFound,
         Monitored,
         Blocked
     }
 
-    address[] internal _monitoring;
+    address[] private _monitoring;
 
     struct Monitoring {
         uint256 version;
@@ -437,7 +524,7 @@ abstract contract Monitorings is Ownable {
                 break;
             }
         }
-        require(found, "Monitorings: Address not found in monitoring list");
+        require(found, "Monitorings: Address not found");
     }
 
     // Check whether the specified address is monitored and not blocked or not found
@@ -459,8 +546,8 @@ abstract contract Monitorings is Ownable {
     }
 
     // Vote on monitoring for the address
-    function voteForServer(address serverAddress) external {
-        _voteForServer(serverAddress);
+    function voteForServer(address serverAddress, address voterAddress) external {
+        _voteForServer(serverAddress, voterAddress);
     }
 
     /**
@@ -479,8 +566,7 @@ abstract contract Monitorings is Ownable {
      * Requirements:
      * - serverAddress must not be the zero address.
      */
-    function _getVotesMonitoredOrBlocked(address serverAddress, bool getVotes) internal view returns (ServerStatus, uint256) {
-        require(serverAddress != address(0), "Monitorings: Server address cannot be zero address");
+    function _getVotesMonitoredOrBlocked(address serverAddress, bool getVotes) private view returns (ServerStatus, uint256) {
         ServerStatus status = ServerStatus.NotFound;
         uint256 totalVotes = 0;
         for (uint256 i = 0; i < _monitoring.length; i++) {
@@ -512,31 +598,29 @@ abstract contract Monitorings is Ownable {
         return status == ServerStatus.Monitored;
     }
 
-    function _voteForServer(address serverAddress) internal {
+    function _voteForServer(address serverAddress, address voterAddress) private {
         require(_isServerMonitored(serverAddress), "Monitorings: This address is not monitored or blocked");
         address monitoringAddress = _getMonitoring().addr;
 
-        IAGEMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress);
+        if (msg.sender != serverAddress) {
+            voterAddress = msg.sender;
+        }
+        IAGEMonitoring(monitoringAddress).voteForServer(voterAddress, serverAddress);
     }
 
-    function _getMonitoring() internal view returns (Monitoring memory) {
-        require(_monitoring.length > 0, "Monitorings: Monitoring list is empty");
-
+    function _getMonitoring() private view returns (Monitoring memory) {
         for (uint256 i = _monitoring.length; i > 0; i--) {
             if (_monitoring[i - 1] != address(0)) {
                 return Monitoring({version: i - 1, addr: _monitoring[i - 1]});
             }
         }
-        revert("Monitorings: No non-zero addresses found in the monitoring list");
+        revert("Monitorings: no found");
     }
 
     function _addServerToMonitoring(uint256 gameId, address serverAddress) internal {
         address monitoringAddress = _getMonitoring().addr;
 
-        IAGEMonitoring(monitoringAddress).addServerAddress(
-            gameId,
-            serverAddress
-       );
+        IAGEMonitoring(monitoringAddress).addServerAddress(gameId, serverAddress);
     }
 }
 
@@ -552,6 +636,15 @@ abstract contract GameData is Ownable {
 
     // This contract is responsible for storing metadata related to various gaming servers.
     IGameData internal _gameData;
+
+    // Utility function to get string representation of a ModuleType enum.
+    function getModuleTypeString(IGameData.ModuleType moduleType) external view returns (string memory) {
+        return _getModuleTypeString(moduleType);
+    }
+
+    function _getModuleTypeString(IGameData.ModuleType moduleType) internal view returns (string memory) {
+        return _gameData.getModuleTypeString(moduleType);
+    }
 
     // This function sets the address of the contract that will store game server metadata
     function setGameServerMetadata(address contracrAddress) external onlyOwner {
@@ -570,8 +663,8 @@ abstract contract GameData is Ownable {
 
     // This internal function actually retrieves the game server data
     function _getServerData(uint256 gameId) internal view returns (string memory, string memory) {
-        string memory name = "Anhydrite server module ";
-        string memory symbol = "AGE_";
+        string memory name = "";
+        string memory symbol = "";
         if (address(_gameData) != address(0)) {
             (name, symbol) = _gameData.getServerData(gameId);
         }
@@ -580,7 +673,28 @@ abstract contract GameData is Ownable {
 }
 // Returns the contract name and symbol of a game based on its ID.
 interface IGameData {
+
+    // Enum representing the various types of modules that can be interacted with via the proxy.
+    enum ModuleType {
+        Server, // Represents a server module.
+        Token, // Represents a token module.
+        NFT, // Represents a NFT module.
+        Shop, // Represents a shop or item shop module.
+        Voting, // Represents a voting module.
+        Lottery, // Represents a lottery module.
+        Raffle, // Represents a raffle module.
+        Game, // Represents a game module.
+        Advertisement, // Represents an advertisement module.
+        AffiliateProgram, // Represents an affiliate program module.
+        Event, // Represents an event module.
+        RatingSystem, // Represents a rating system module.
+        SocialFunctions, // Represents a social functions module.
+        Auction, // Represents an auction module.
+        Charity // Represents a charity module.
+    }
     function getServerData(uint256 gameId) external view returns (string memory, string memory);
+    // Internal utility function to get string representation of a ModuleType enum.
+    function getModuleTypeString(ModuleType moduleType) external view returns (string memory);
 }
 
 
@@ -589,38 +703,18 @@ interface IGameData {
  * It is an extension of a "Monitorings" contract and provides functionality to add new types of modules,
  * update existing ones, and query the state of these modules.
  */
-abstract contract Modules is Monitorings, GameData {
-
-    // Define types of modules available.
-    enum ModuleType {
-        Server,
-        Shop,
-        Voting,
-        Lottery,
-        Raffle,
-        Game,
-        Advertisement,
-        AffiliateProgram,
-        Event,
-        RatingSystem,
-        SocialFunctions,
-        Auction,
-        Charity
-    }
-
-    // Mapping to store the price associated with each service name.
-    mapping(string => uint256) internal _prices;
-
-    // Define the structure of a Module.
+abstract contract ModuleManager is MonitoringManager, GameData {
+    
+    // Structure defining a Module with a name, type, type as a string, and the address of its factory contract.
     struct Module {
         string moduleName;
-        ModuleType moduleType;
+        IGameData.ModuleType moduleType;
         string moduleTypeString;
         address moduleFactory;
     }
 
     // Store hashes of all modules.
-    bytes32[] private _moduleHash;
+    bytes32[] private _moduleList;
     // Mapping to store Module structs.
     mapping(bytes32 => Module) private _modules;
 
@@ -632,38 +726,37 @@ abstract contract Modules is Monitorings, GameData {
     // Adds a new Game Server module or pdates an existing Game Server module.
     function addOrUpdateGameServerModule(uint256 gameId, address contractAddress, bool update) external onlyOwner {
         (string memory moduleName,) = _getServerData(gameId);
-        uint256 uintType = uint256(ModuleType.Server);
+        uint256 uintType = uint256(IGameData.ModuleType.Server);
         _addModule(moduleName, uintType, contractAddress, update);
     }
 
     // Internal function to add or update a module.
-    function _addModule(string memory moduleName, uint256 uintType, address contractAddress, bool update) internal {
+    function _addModule(string memory moduleName, uint256 uintType, address contractAddress, bool update) private {
         bytes32 hash = _getModuleHash(moduleName, uintType);
-        ModuleType moduleType = ModuleType(uintType);
+        bool exist = _modules[hash].moduleFactory != address(0);
+        bool isRevert = true;
+        IGameData.ModuleType moduleType = IGameData.ModuleType(uintType);
+        Module memory module  = Module({
+            moduleName: moduleName,
+            moduleType: moduleType,
+            moduleTypeString: _getModuleTypeString(moduleType),
+            moduleFactory: contractAddress
+        });
 
         if (update) {
-            if (_modules[hash].moduleFactory != address(0)) {
-                _modules[hash] = Module({
-                    moduleName: moduleName,
-                    moduleType: moduleType,
-                    moduleTypeString: _getModuleTypeString(moduleType),
-                    moduleFactory: contractAddress
-                });
-            } else {
-                revert("Modules: Such a module does not exist");
+            if (exist) {
+                _modules[hash] = module;
+                delete isRevert;
             }
         } else {
-            if (_modules[hash].moduleFactory == address(0)) {
-                _modules[hash] = Module({
-                    moduleName: moduleName,
-                    moduleType: moduleType,
-                    moduleTypeString: _getModuleTypeString(moduleType),
-                    moduleFactory: contractAddress
-                });
-                _moduleHash.push(hash);
-            } else {
-                revert("Modules: Such a module already exists");
+            if (!exist) {
+                _modules[hash] = module;
+                _moduleList.push(hash);
+                delete isRevert;
             }
+        }
+        if (isRevert) {
+            revert("Modules: Such a module already exists");
         }
     }
 
@@ -671,11 +764,11 @@ abstract contract Modules is Monitorings, GameData {
     function removeModule(string memory moduleName, uint256 uintType) external  onlyOwner {
         bytes32 hash = _getModuleHash(moduleName, uintType);
         if (_modules[hash].moduleFactory != address(0)) {
-            _modules[hash] = Module("", ModuleType.Server, "", address(0));
-            for (uint256 i = 0; i < _moduleHash.length; i++) {
-                if (_moduleHash[i] == hash) {
-                    _moduleHash[i] = _moduleHash[_moduleHash.length - 1];
-                    _moduleHash.pop();
+            _modules[hash] = Module("", IGameData.ModuleType.Server, "", address(0));
+            for (uint256 i = 0; i < _moduleList.length; i++) {
+                if (_moduleList[i] == hash) {
+                    _moduleList[i] = _moduleList[_moduleList.length - 1];
+                    _moduleList.pop();
                     return;
                 }
             }
@@ -684,38 +777,23 @@ abstract contract Modules is Monitorings, GameData {
         }
     }
 
-    // Returns the contract address of a module.
-    function getModuleAddress(string memory name, uint256 uintType)
-        external
-        view
-        returns (address)
-    {
-        Module memory module = _getModule(_getModuleHash(name, uintType));
-        return module.moduleFactory;
-    }
-
     // Retrieves all modules without any filtering.
     function getAllModules() external view returns (Module[] memory) {
         return _getFilteredModules(0xFFFFFFFF);
     }
 
     // Retrieves modules filtered by a specific type.
-    function getModulesByType(ModuleType moduleType) external view returns (Module[] memory) {
+    function getModulesByType(IGameData.ModuleType moduleType) external view returns (Module[] memory) {
         return _getFilteredModules(uint256(moduleType));
     }
 
-    // Utility function to get string representation of a ModuleType enum.
-    function getModuleTypeString(ModuleType moduleType) external pure returns (string memory) {
-        return _getModuleTypeString(moduleType);
-    }
-
     // Internal function to get modules filtered by type.
-    function _getFilteredModules(uint256 filterType) internal view returns (Module[] memory) {
+    function _getFilteredModules(uint256 filterType) private view returns (Module[] memory) {
         uint256 count = 0;
-        ModuleType filteredType = ModuleType(filterType);
+        IGameData.ModuleType filteredType = IGameData.ModuleType(filterType);
 
-        for (uint256 i = 0; i < _moduleHash.length; i++) {
-            bytes32 hash = _moduleHash[i];
+        for (uint256 i = 0; i < _moduleList.length; i++) {
+            bytes32 hash = _moduleList[i];
             if (filterType == 0xFFFFFFFF || _modules[hash].moduleType == filteredType) {
                 count++;
             }
@@ -724,8 +802,8 @@ abstract contract Modules is Monitorings, GameData {
         Module[] memory filteredModules = new Module[](count);
 
         uint256 j = 0;
-        for (uint256 i = 0; i < _moduleHash.length; i++) {
-            bytes32 hash = _moduleHash[i];
+        for (uint256 i = 0; i < _moduleList.length; i++) {
+            bytes32 hash = _moduleList[i];
             if (filterType == 0xFFFFFFFF || _modules[hash].moduleType == filteredType) {
                 filteredModules[j] = _modules[hash];
                 j++;
@@ -736,33 +814,25 @@ abstract contract Modules is Monitorings, GameData {
     }
 
     // Internal function to check if a module exists.
-    function _isModuleExists(bytes32 hash) internal view returns (bool) {
+    function _isModuleExists(bytes32 hash) private view returns (bool) {
         bool existModule = _modules[hash].moduleFactory != address(0);
         return existModule;
     }
 
     // Deploys a module on a server. 
     // Checks if the server is authorized to deploy the module.
-    function deployModuleOnServer(
-        string memory factoryName,
-        uint256 uintType,
-        address ownerAddress
-   ) external onlyServerAutorised(msg.sender) returns (address) {
+    function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress)
+      external onlyServerAutorised(msg.sender) returns (address) {
         uint256 END_OF_LIST = 1000;
         return _deploy(END_OF_LIST, factoryName, uintType, ownerAddress);
     }
 
     // Deploys a new game server contract and adds it to monitoring.
     function deployServerContract(uint256 gameId) external returns (address) {
-        uint256 uintType = uint256(ModuleType.Server);
+        uint256 uintType = uint256(IGameData.ModuleType.Server);
         (string memory contractName,) = _getServerData(gameId);
 
-        address minecraftServerAddress = _deploy(
-            gameId,
-            contractName,
-            uintType,
-            address(0)
-       );
+        address minecraftServerAddress = _deploy(gameId, contractName, uintType, address(0));
 
         _mintTokenForServer(minecraftServerAddress);
         _addServerToMonitoring(gameId, minecraftServerAddress);
@@ -775,7 +845,7 @@ abstract contract Modules is Monitorings, GameData {
     function _mintTokenForServer(address serverAddress) internal virtual;
 
     // Internal function to handle the actual deployment of modules or servers.
-    function _deploy(uint256 gameId, string memory factoryName, uint256 uintType, address ownerAddress) internal returns (address) {
+    function _deploy(uint256 gameId, string memory factoryName, uint256 uintType, address ownerAddress) private returns (address) {
         bytes32 hash = _getModuleHash(factoryName, uintType);
 
         (string memory name, string memory symbol) = _getServerData(gameId);
@@ -783,111 +853,119 @@ abstract contract Modules is Monitorings, GameData {
     }
 
     // Internal utility function to fetch a module's data.
-    function _getModule(bytes32 hash) internal view returns (Module memory) {
+    function _getModule(bytes32 hash) private view returns (Module memory) {
         require(_isModuleExists(hash), "Modules: The module with this name and type does not exist");
         return _modules[hash];
     }
 
     // Internal utility function to calculate hash for a module.
-    function _getModuleHash(string memory name, uint256 uintType) internal pure returns (bytes32) {
+    function _getModuleHash(string memory name, uint256 uintType) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(name, uintType));
-    }
-
-    // Internal utility function to get string representation of a ModuleType enum.
-    function _getModuleTypeString(ModuleType moduleType) internal pure returns (string memory) {
-        if (moduleType == ModuleType.Server) {
-            return "Server";
-        } else if (moduleType == ModuleType.Shop) {
-            return "Shop";
-        } else if (moduleType == ModuleType.Voting) {
-            return "Voting";
-        } else if (moduleType == ModuleType.Lottery) {
-            return "Lottery";
-        } else if (moduleType == ModuleType.Raffle) {
-            return "Raffle";
-        } else if (moduleType == ModuleType.Game) {
-            return "Game";
-        } else if (moduleType == ModuleType.Advertisement) {
-            return "Advertisement";
-        } else if (moduleType == ModuleType.AffiliateProgram) {
-            return "AffiliateProgram";
-        } else if (moduleType == ModuleType.Event) {
-            return "Event";
-        } else if (moduleType == ModuleType.RatingSystem) {
-            return "RatingSystem";
-        } else if (moduleType == ModuleType.SocialFunctions) {
-            return "SocialFunctions";
-        } else if (moduleType == ModuleType.Auction) {
-            return "Auction";
-        } else if (moduleType == ModuleType.Charity) {
-            return "Charity";
-        } else {
-            return "Unknown";
-        }
     }
 
     // Modifier to check if the address is an authorized server.
     modifier onlyServerAutorised(address contractAddress) {
-        require(_isServerMonitored(contractAddress), "Modules: This address is not monitored or blocked.");
+        require(_isServerMonitored(contractAddress), "Modules: This address is not monitored or blocked");
         _;
     }
 }
 
-interface IFactory {function deployModule(string memory name, string memory symbol, address serverContractAddress,
+interface IFactory {
+    function deployModule(string memory name, string memory symbol, address serverAddress,
         address ownerAddress) external returns (address);
 }
 
-abstract contract Finances is Ownable {
-    // Function for transferring Ether
-    function transferMoney(address payable recipient, uint256 amount) external onlyOwner {
-        require(address(this).balance >= amount, "Finances: Contract has insufficient balance");
-        recipient.transfer(amount);
-    }
-
-    // Function for transferring ERC20 tokens
-    function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
-        IERC20 token = IERC20(_tokenAddress);
-        require(token.balanceOf(address(this)) >= _amount, "Finances: Not enough tokens on contract balance");
-        token.transfer(_to, _amount);
-    }
-
-    // Function for transferring ERC721 tokens
-    function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external onlyOwner {
-        ERC721 token = ERC721(_tokenAddress);
-        require(token.ownerOf(_tokenId) == address(this), "Finances: The contract is not the owner of this token");
-        token.safeTransferFrom(address(this), _to, _tokenId);
-    }
-}
 
 // Interface for contracts that are capable of receiving ERC20 (ANH) tokens.
 interface IERC20Receiver {
     // Function that is triggered when ERC20 (ANH) tokens are received.
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+}
+
+/**
+ * @title ERC20Receiver Abstract Contract
+ * @dev This contract extends from IERC20Receiver, BaseUtility, and ERC165 interfaces.
+ *      It provides functionalities for receiving ERC20 (ANHYDRITE) tokens and responding with a magic identifier.
+ *      It uses the IERC1820Registry for handling standardized contract interface detection.
+ * 
+ *      Events:
+ *      - DepositAnhydrite: Emitted when ANHYDRITE tokens are deposited.
+ *      - ChallengeIERC20Receiver: Emitted to track from which address the tokens were transferred,
+ *          who transferred them, to which address and the number of tokens.
+ * 
+ *      Functions include:
+ *      - onERC20Received: Overridden from IERC20Receiver, handles incoming ERC20 token transfers.
+ */
+abstract contract ERC20Receiver is IERC20Receiver, BaseUtility {
+
+    // Event emitted when Anhydrite tokens are deposited.
+    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
     // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
     event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
+
+    constructor() {
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
+    }
+
+    // Implementation of IERC20Receiver, for receiving ERC20 tokens.
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        bytes4 validID = this.onERC20Received.selector;
+        bytes4 returnValue = bytes4(keccak256("anything_else")); // Default value
+        if (msg.sender.code.length > 0) {
+            if (msg.sender == address(ANHYDRITE)) {
+                emit DepositAnhydrite(_from, _who, _amount);
+                returnValue = validID;
+            } else {
+                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
+                    if (balance >= _amount) {
+                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
+                        returnValue = validID;
+                    }
+                } catch {
+                    // No need to change returnValue, it's already set to fakeID
+                }
+            }
+            return returnValue;
+        } else {
+            revert ("ERC20Receiver: This function is for handling token acquisition");
+        }
+    }
+}
+/**
+ * @title IERC1820Registry Interface
+ * @dev This is an interface for the ERC1820 Registry contract, a central registry 
+ *      used to discover which interface a particular address supports.
+ * 
+ *      The ERC1820 standard is a meta-standard that defines a universal registry smart contract 
+ *      where any address (contract or regular account) can indicate which interface it supports.
+ *
+ *      Functions:
+ *      - setInterfaceImplementer: Sets the contract which implements a specific interface for an address.
+ */
+interface IERC1820Registry {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
 }
 
 // An interface declaring functions for the Anhydrite Gaming Ecosystem (AGE).
 interface IAGE {
     function VERSION() external pure returns (uint256);
-    function setPrice(string memory name, uint256 count) external;
-    function getPrice(string memory name) external view returns (uint256);
+    function addPrice(string memory name, uint256 count) external;
+    function getPrice(bytes32 key) external view returns (uint256);
     function getServerFromTokenId(uint256 tokenId) external view returns (address);
     function getTokenIdFromServer(address serverAddress) external view returns (uint256);
 }
 
 // The main contract for the Anhydrite Gaming Ecosystem (AGE).
 // This contract integrates various functionalities including Ownership, Finance, Modules, ERC721, and more.
-contract AnhydriteGamingEcosystem is
+contract AGE is
     OwnableManager,
-    Finances,
-    Modules,
+    FinanceManager,
+    ModuleManager,
     IAGE,
-    ERC721,
     ERC721Enumerable,
     ERC721URIStorage,
     ERC721Burnable,
-    IERC20Receiver
+    ERC20Receiver
 {
     using Counters for Counters.Counter;
 
@@ -903,8 +981,14 @@ contract AnhydriteGamingEcosystem is
     // Mapping between contract addresses and their corresponding token IDs.
     mapping(address => uint256) private _contractToken;
 
-    // Event emitted when Anhydrite tokens are deposited.
-    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
+    struct Price {
+        string name;
+        uint256 price;
+    }
+    
+    // Mapping to store the price associated with each service name.
+    mapping(bytes32 => Price) internal _prices;
+    bytes32[] internal _priceArray;
 
     constructor() ERC721("Anhydrite Gaming Ecosystem", "AGE") {
         uint256 tokenId = _tokenIdCounter.current();
@@ -912,18 +996,31 @@ contract AnhydriteGamingEcosystem is
         _safeMint(msg.sender, tokenId);
         _setTokenURI(tokenId, "ipfs://bafkreif66z2aeoer6lyujghufat3nxtautrza3ucemwcwgfiqpajjlcroy");
         _tokenContract[tokenId] = msg.sender;
-        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
-            address(this), keccak256("IERC20Receiver"), address(this));
     }
 
     // Allows the owner to set the price for a specific service.
-    function setPrice(string memory name, uint256 count) public override onlyOwner {
-        _prices[name] = count;
+    function addPrice(string memory name, uint256 count) public override onlyOwner {
+        bytes32 key = keccak256(abi.encodePacked(name));
+        if (bytes(_prices[key].name).length == 0) {
+            _priceArray.push(key);
+        }
+        _prices[key] = Price(name, count);
     }
 
     // Retrieves the price for a given service name.
-    function getPrice(string memory name) public view override returns (uint256) {
-        return _prices[name];
+    function getPrice(bytes32 key) public view override returns (uint256) {
+        return _prices[key].price;
+    }
+    
+    function getPrices() public view returns (Price[] memory) {
+        uint256 length = _priceArray.length;
+        Price[] memory prices = new Price[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            prices[i] = _prices[_priceArray[i]];
+        }
+        
+        return prices;
     }
 
     // Retrieves the address of the server associated with a given token ID.
@@ -936,30 +1033,6 @@ contract AnhydriteGamingEcosystem is
         return _contractToken[serverAddress];
     }
 
-    // Handles received ERC20 tokens.
-    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
-        bytes4 fakeID = bytes4(keccak256("anything_else"));
-        bytes4 validID = this.onERC20Received.selector;
-        bytes4 returnValue = fakeID; // Default value
-        if (Address.isContract(msg.sender)) {
-            if (msg.sender == address(ANHYDRITE)) {
-                emit DepositAnhydrite(_from, _who, _amount);
-                returnValue = validID;
-            } else {
-                try IERC20(msg.sender).balanceOf(address(this)) returns (
-                    uint256 balance
-               ) {
-                    if (balance >= _amount) {emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
-                        returnValue = validID;
-                    }
-                } catch {
-                    // No need to change returnValue, it's already set to fakeID
-                }
-            }
-        }
-        return returnValue;
-    }
-
     // Overrides the tokenURI function to provide the URI for each token.
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
@@ -967,7 +1040,9 @@ contract AnhydriteGamingEcosystem is
 
     // Checks if the contract supports a specific interface.
     function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
-        return interfaceId == type(IAGE).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IAGE).interfaceId ||
+               interfaceId == type(IERC20Receiver).interfaceId ||
+               super.supportsInterface(interfaceId);
     }
 
     // Internal function to mint a token for a given server.
@@ -991,9 +1066,4 @@ contract AnhydriteGamingEcosystem is
     function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
         super._burn(tokenId);
     }
-}
-
-// Interface for the ERC1820 Registry.
-interface IERC1820Registry {
-    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
 }

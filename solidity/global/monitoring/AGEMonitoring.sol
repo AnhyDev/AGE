@@ -777,6 +777,7 @@ contract AGEMonitoring is IAGEMonitoring,
     // The following constants represent the percentage of tokens to be burnt when voting, 
     // varying based on the number of votes cast in a single transaction.
     // The higher the number of votes, the lower the percentage of tokens burnt.
+    uint256 private constant PERCENTAGE_1_VOTES = 100;
     uint256 private constant PERCENTAGE_10_VOTES = 90;
     uint256 private constant PERCENTAGE_100_VOTES = 80;
     uint256 private constant PERCENTAGE_1000_VOTES = 70;
@@ -880,7 +881,7 @@ contract AGEMonitoring is IAGEMonitoring,
      */ 
     function voteForServer(address voterAddress, address serverAddress) external override notStopped {
         voterAddress = _getVoterAddress(voterAddress);
-        _vote(voterAddress, serverAddress, 1, 100);
+        _vote(voterAddress, serverAddress, 1, PERCENTAGE_1_VOTES);
     }
     function voteForServerWith10(address voterAddress, address serverAddress) external override notStopped {
         voterAddress = _getVoterAddress(voterAddress);

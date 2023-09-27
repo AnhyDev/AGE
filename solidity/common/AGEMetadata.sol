@@ -29,7 +29,6 @@
 
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
@@ -42,14 +41,11 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
  * - _getProxyAddress: Returns the proxy contract address from the Anhydrite contract.
  * - _proxyContract: Returns an instance of the proxy contract.
  * - _isProxyOwner: Checks if an address is among the proxy contract owners.
- *
- * Modifier:
- * - onlyProxyOwner: Restricts function execution to the proxy contract owners or to the contract owner if the proxy is not set.
  */
-abstract contract BaseUtil is Ownable {
+abstract contract BaseUtility {
     
     // Main project token (ANH) address
-    IANH public constant ANHYDRITE = IANH(0x9a9a0EB311E937C7D75d3468C8b0135d4976DAa7);
+    IANH public constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
 
     // Returns the proxy contract address from the Anhydrite contract.
     function _getProxyAddress() internal view returns (address) {
@@ -66,21 +62,26 @@ abstract contract BaseUtil is Ownable {
         return _proxyContract().isProxyOwner(senderAddress);
     }
 
-    // Restricts function execution to the proxy contract owners or to the contract owner if the proxy is not set.
-    modifier onlyProxyOwner() {
+    /**
+     * @dev Throws if the sender is not the owner.
+     */
+    function _checkProxyOwner() internal view virtual {
         if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
-            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxy owner");
+            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxyOwner");
         } else {
             _checkOwner();
         }
-        _;
     }
+
+    function _checkOwner() internal view virtual;
+
 }
 // Interface for interacting with the Anhydrite contract.
 interface IANH is IERC20 {
     // Returns the interface address of the proxy contract
     function getProxyAddress() external view returns (address);
 }
+
 // Interface for interacting with the Proxy contract.
 interface IProxy {
     // Returns the address of the current implementation (logic contract)
@@ -92,6 +93,56 @@ interface IProxy {
 }
 
 
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ */
+abstract contract Ownable is BaseUtility {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _transferOwnership(msg.sender);
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    // Modifier that checks whether you are among the owners of the proxy smart contract and whether you have the right to vote
+    modifier onlyOwner() {
+        _checkProxyOwner();
+        _;
+    }
+
+    /**
+     * @dev Throws if the sender is not the owner.
+     */
+    function _checkOwner() internal override view {
+        require(owner() == msg.sender, "Ownable: caller is not the owner");
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}
 
 
 /*
@@ -102,13 +153,13 @@ interface IProxy {
  * 3. Transfer of ERC721 tokens (NFTs) to the designated address.
  * All financial operations are restricted to the contract owner.
  */
-abstract contract FinanceManager is BaseUtil {
+abstract contract FinanceManager is Ownable {
 
     /**
      * @dev Withdraws BNB from the contract to a designated address.
      * @param amount Amount of BNB to withdraw.
      */
-    function withdrawMoney(uint256 amount) external onlyProxyOwner {
+    function withdrawMoney(uint256 amount) external onlyOwner {
         address payable recipient = payable(_recepient());
         require(address(this).balance >= amount, "FinanceManager: Contract has insufficient balance");
         recipient.transfer(amount);
@@ -119,7 +170,7 @@ abstract contract FinanceManager is BaseUtil {
      * @param _tokenAddress The address of the ERC20 token contract.
      * @param _amount The amount of tokens to withdraw.
      */
-    function withdrawERC20Tokens(address _tokenAddress, uint256 _amount) external onlyProxyOwner {
+    function withdrawERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
         require(token.balanceOf(address(this)) >= _amount, "FinanceManager: Not enough tokens on contract balance");
         token.transfer(_recepient(), _amount);
@@ -130,7 +181,7 @@ abstract contract FinanceManager is BaseUtil {
      * @param _tokenAddress The address of the ERC721 token contract.
      * @param _tokenId The ID of the token to transfer.
      */
-    function withdrawERC721Token(address _tokenAddress, uint256 _tokenId) external onlyProxyOwner {
+    function withdrawERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
         IERC721 token = IERC721(_tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "FinanceManager: The contract is not the owner of this token");
         token.safeTransferFrom(address(this), _recepient(), _tokenId);
@@ -149,15 +200,21 @@ abstract contract FinanceManager is BaseUtil {
     }
 }
 
+
+// Declares an abstract contract ERC165 that implements the IERC165 interface
 abstract contract ERC165 is IERC165 {
 
+    // Internal mapping to store supported interfaces
     mapping(bytes4 => bool) internal supportedInterfaces;
 
+    // Constructor to initialize the mapping of supported interfaces
     constructor() {
+        // 0x01ffc9a7 is the interface identifier for ERC165 according to the standard
         supportedInterfaces[0x01ffc9a7] = true;
     }
 
-    // Realization ERC165
+    // Implements the supportsInterface method from the IERC165 interface
+    // The function checks if the contract supports the given interface
     function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
         return supportedInterfaces[interfaceId];
     }
@@ -167,9 +224,139 @@ abstract contract ERC165 is IERC165 {
 interface IERC20Receiver {
     // Function that is triggered when ERC20 (ANH) tokens are received.
     function onERC20Received(address _from, address _who, uint256 _amount) external returns (bytes4);
+}
 
+/**
+ * @title ERC20Receiver Abstract Contract
+ * @dev This contract extends from IERC20Receiver, BaseUtility, and ERC165 interfaces.
+ *      It provides functionalities for receiving ERC20 (ANHYDRITE) tokens and responding with a magic identifier.
+ *      It uses the IERC1820Registry for handling standardized contract interface detection.
+ * 
+ *      Events:
+ *      - DepositAnhydrite: Emitted when ANHYDRITE tokens are deposited.
+ *      - ChallengeIERC20Receiver: Emitted to track from which address the tokens were transferred,
+ *          who transferred them, to which address and the number of tokens.
+ * 
+ *      Functions include:
+ *      - onERC20Received: Overridden from IERC20Receiver, handles incoming ERC20 token transfers.
+ */
+abstract contract ERC20Receiver is IERC20Receiver, BaseUtility, ERC165 {
+
+    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+
+    // Event emitted when Anhydrite tokens are deposited.
+    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
     // An event to track from which address the tokens were transferred, who transferred, to which address and the number of tokens
     event ChallengeIERC20Receiver(address indexed from, address indexed who, address indexed token, uint256 amount);
+
+    constructor() {
+        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));
+    }
+
+    /**
+     * @dev Handles the receipt of ERC20 tokens. Implements the IERC20Receiver interface.
+     * @param _from The address from which the tokens are sent.
+     * @param _who The address that triggered the sending of tokens.
+     * @param _amount The amount of tokens received.
+     * @return bytes4 The interface identifier, to confirm contract adherence.
+     */
+    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
+        bytes4 fakeID = bytes4(keccak256("anything_else"));
+        bytes4 validID = this.onERC20Received.selector;
+        bytes4 returnValue = fakeID;  // Default value
+        if (msg.sender.code.length > 0) {
+            if (msg.sender == address(ANHYDRITE)) {
+                emit DepositAnhydrite(_from, _who, _amount);
+                returnValue = validID;
+            } else {
+                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
+                    if (balance >= _amount) {
+                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
+                        returnValue = validID;
+                    }
+                } catch {
+                    // No need to change returnValue, it's already set to fakeID
+                }
+            }
+            return returnValue;
+        } else {
+            revert ("ERC20Receiver: This function is for handling token acquisition");
+        }
+    }
+}
+
+/**
+ * @title IERC1820Registry Interface
+ * @dev This is an interface for the ERC1820 Registry contract, a central registry 
+ *      used to discover which interface a particular address supports.
+ * 
+ *      The ERC1820 standard is a meta-standard that defines a universal registry smart contract 
+ *      where any address (contract or regular account) can indicate which interface it supports.
+ *
+ *      Functions:
+ *      - setInterfaceImplementer: Sets the contract which implements a specific interface for an address.
+ */
+interface IERC1820Registry {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+}
+
+abstract contract ModuleTypeData {
+
+    enum ModuleType {
+        Server, // Represents a server module.
+        Token, // Represents a token module.
+        NFT, // Represents a NFT module.
+        Shop, // Represents a shop or item shop module.
+        Voting, // Represents a voting module.
+        Lottery, // Represents a lottery module.
+        Raffle, // Represents a raffle module.
+        Game, // Represents a game module.
+        Advertisement, // Represents an advertisement module.
+        AffiliateProgram, // Represents an affiliate program module.
+        Event, // Represents an event module.
+        RatingSystem, // Represents a rating system module.
+        SocialFunctions, // Represents a social functions module.
+        Auction, // Represents an auction module.
+        Charity // Represents a charity module.
+    }
+
+    // Internal utility function to get string representation of a ModuleType enum.
+    function getModuleTypeString(ModuleType moduleType) external pure returns (string memory) {
+        if (moduleType == ModuleType.Server) {
+            return "Server";
+        } else if (moduleType == ModuleType.Token) {
+            return "Token";
+        } else if (moduleType == ModuleType.NFT) {
+            return "NFT";
+        } else if (moduleType == ModuleType.Shop) {
+            return "Shop";
+        } else if (moduleType == ModuleType.Voting) {
+            return "Voting";
+        } else if (moduleType == ModuleType.Lottery) {
+            return "Lottery";
+        } else if (moduleType == ModuleType.Raffle) {
+            return "Raffle";
+        } else if (moduleType == ModuleType.Game) {
+            return "Game";
+        } else if (moduleType == ModuleType.Advertisement) {
+            return "Advertisement";
+        } else if (moduleType == ModuleType.AffiliateProgram) {
+            return "AffiliateProgram";
+        } else if (moduleType == ModuleType.Event) {
+            return "Event";
+        } else if (moduleType == ModuleType.RatingSystem) {
+            return "RatingSystem";
+        } else if (moduleType == ModuleType.SocialFunctions) {
+            return "SocialFunctions";
+        } else if (moduleType == ModuleType.Auction) {
+            return "Auction";
+        } else if (moduleType == ModuleType.Charity) {
+            return "Charity";
+        } else {
+            return "Unknown";
+        }
+    }
 }
 
 /**
@@ -188,7 +375,7 @@ interface IERC20Receiver {
  * - getGameName: Returns the name of a game based on its ID.
  * - addServerData: Allows the contract owner and/or the proxy contract owners to add new gaming server data.
  */
-contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 {
+contract AGEMetadata is ModuleTypeData, FinanceManager, ERC20Receiver {
 
     // A constant that represents the end of the games list.
     uint256 public constant END_OF_LIST = 1000;
@@ -203,24 +390,16 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 
     // A mapping from uint256-based game IDs to an array containing the game's name, contract name, and contract symbol.
     mapping(uint256 => string[]) internal _gamesData;
 
-    // Event emitted when Anhydrite tokens are deposited.
-    event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
-
 
     constructor () {
-        supportedInterfaces[type(IERC20Receiver).interfaceId] = true;
-
         // Initializes the _gamesData mapping with predefined gaming server data.
-        _gamesData[0] = [   "Minecraft",               "Anhydrite Minecraft server contract",              "AGE_MC"    ];
-        _gamesData[1] = [   "GTA",                     "Grand Theft Auto server contract",                 "AGE_GTA"   ];
-        _gamesData[2] = [   "Terraria",                "Anhydrite Terraria server contract",               "AGE_TERRA" ];
-        _gamesData[3] = [   "ARK Survival Evolved",    "Anhydrite ARK Survival Evolved server contract",   "AGE_ARK"   ];
-        _gamesData[4] = [   "Rust",                    "Anhydrite Rust server contract",                   "AGE_RST"   ];
-        _gamesData[5] = [   "Counter Strike",          "Counter-Strike server contract",                   "AGE_CS"    ];
-        _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "Anhydrite server module ",                         "AGE_"      ];
-
-        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
-            address(this), keccak256("IERC20Receiver"), address(this));
+        _gamesData[0] = [   "Minecraft",               "Anhydrite Minecraft server contract",              "AGEMC"  ];
+        _gamesData[1] = [   "GTA",                     "Grand Theft Auto server contract",                 "AGEGTA" ];
+        _gamesData[2] = [   "Terraria",                "Anhydrite Terraria server contract",               "AGETER" ];
+        _gamesData[3] = [   "ARK Survival Evolved",    "Anhydrite ARK Survival Evolved server contract",   "AGESE"  ];
+        _gamesData[4] = [   "Rust",                    "Anhydrite Rust server contract",                   "AGERST" ];
+        _gamesData[5] = [   "Counter Strike",          "Counter-Strike server contract",                   "AGECS"  ];
+        _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "Anhydrite server module ",                         "AGESM"  ];
     }
     
     /**
@@ -263,7 +442,7 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 
      * @param contractName The name of the contract related to the game.
      * @param contractSymbol The symbol of the contract related to the game.
      */
-    function addServerData(uint256 gameId, string memory gameName, string memory contractName, string memory contractSymbol) public onlyOwner onlyProxyOwner {
+    function addServerData(uint256 gameId, string memory gameName, string memory contractName, string memory contractSymbol) public onlyOwner {
         require(gameId < END_OF_LIST, "GameServerMetadata: gameId must be less than 1000");
         if (_gamesData[gameId].length == 0) {
             _gamesData[gameId].push(gameName);
@@ -318,37 +497,4 @@ contract GameServerMetadata is BaseUtil, FinanceManager, IERC20Receiver, ERC165 
         // Otherwise, return the gameId.
         return gameId;
     }
-
-    /**
-     * @dev Handles the receipt of ERC20 tokens. Implements the IERC20Receiver interface.
-     * @param _from The address from which the tokens are sent.
-     * @param _who The address that triggered the sending of tokens.
-     * @param _amount The amount of tokens received.
-     * @return bytes4 The interface identifier, to confirm contract adherence.
-     */
-    function onERC20Received(address _from, address _who, uint256 _amount) external override returns (bytes4) {
-        bytes4 fakeID = bytes4(keccak256("anything_else"));
-        bytes4 validID = this.onERC20Received.selector;
-        bytes4 returnValue = fakeID;  // Default value
-        if (msg.sender.code.length > 0) {
-            if (msg.sender == address(ANHYDRITE)) {
-                emit DepositAnhydrite(_from, _who, _amount);
-                returnValue = validID;
-            } else {
-                try IERC20(msg.sender).balanceOf(address(this)) returns (uint256 balance) {
-                    if (balance >= _amount) {
-                        emit ChallengeIERC20Receiver(_from, _who, msg.sender, _amount);
-                        returnValue = validID;
-                    }
-                } catch {
-                    // No need to change returnValue, it's already set to fakeID
-                }
-            }
-        }
-        return returnValue;
-    }
-}
-// Interface for interacting with the ERC1820Registry contract.
-interface IERC1820Registry {
-    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
 }
