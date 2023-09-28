@@ -304,39 +304,6 @@ abstract contract Cashback is Ownable {
     }
 
     /**
-     * @dev Performs cleanup and dissociation actions between this contract and the associated server contract.
-     * 
-     * This method achieves the following:
-     * 1. Iterates through all the cashback modules linked to the server contract.
-     * 2. For each cashback module, if this contract is approved, it revokes the approval.
-     * 3. Deletes the reference to the server contract from this contract.
-     * 4. Calls the factory contract to remove the association between the factory and the server contract.
-     * 5. Emits a ServerContractRemoved event, specifying the address of the removed server contract and the number of modifications made.
-     * 
-     * Requirements:
-     * - The caller must be the server contract that is associated with this contract.
-     * 
-     * Emits:
-     * - A `ServerContractRemoved` event upon successful execution.
-     */
-    function dissociateAndCleanUpServerContract() external {
-        require(msg.sender == address(_serverContract), "Cashback: Only the server contract can call this function");
-        
-        IServer.StructCashback[] memory cashbacks = _serverContract.getAllCashbacks();
-        uint256 modifications = 0;
-        for (uint256 i = 0; i < cashbacks.length; i++) {
-            IModuleCashback cashbackModule = IModuleCashback(cashbacks[i].contractCashbackAddress);
-            if (cashbackModule.isAddressApproved(address(this))) {
-                cashbackModule.toggleAddressApproval(address(this), false);
-                modifications++;
-            }
-        }
-        delete _serverContract;
-        IFactory(moduleFactory).removeModule(address(_serverContract));
-        emit ServerContractRemoved(address(_serverContract), modifications);
-    }
-
-    /**
      * @dev Internal function to get the cashback details from the server contract.
      * @param source The bytes32 key representing a service.
      * @return address The address of the cashback contract.
@@ -886,6 +853,7 @@ interface IAGEModule {
     function getModuleType() external view returns (ModuleType);
     function getModuleTypeString() external view returns (string memory);
     function getModuleFactory() external view returns (address);
+    function dissociateAndCleanUpServerContract() external;
 }
 
 /**
@@ -946,6 +914,39 @@ contract SalesModule is SalesProcessing, FinanceManager, ERC20Receiver, IAGEModu
      */
     function getModuleFactory() external view override returns (address) {
         return moduleFactory;
+    }
+
+    /**
+     * @dev Performs cleanup and dissociation actions between this contract and the associated server contract.
+     * 
+     * This method achieves the following:
+     * 1. Iterates through all the cashback modules linked to the server contract.
+     * 2. For each cashback module, if this contract is approved, it revokes the approval.
+     * 3. Deletes the reference to the server contract from this contract.
+     * 4. Calls the factory contract to remove the association between the factory and the server contract.
+     * 5. Emits a ServerContractRemoved event, specifying the address of the removed server contract and the number of modifications made.
+     * 
+     * Requirements:
+     * - The caller must be the server contract that is associated with this contract.
+     * 
+     * Emits:
+     * - A `ServerContractRemoved` event upon successful execution.
+     */
+    function dissociateAndCleanUpServerContract() external override {
+        require(msg.sender == address(_serverContract), "Cashback: Only the server contract can call this function");
+        
+        IServer.StructCashback[] memory cashbacks = _serverContract.getAllCashbacks();
+        uint256 modifications = 0;
+        for (uint256 i = 0; i < cashbacks.length; i++) {
+            IModuleCashback cashbackModule = IModuleCashback(cashbacks[i].contractCashbackAddress);
+            if (cashbackModule.isAddressApproved(address(this))) {
+                cashbackModule.toggleAddressApproval(address(this), false);
+                modifications++;
+            }
+        }
+        delete _serverContract;
+        IFactory(moduleFactory).removeModule(address(_serverContract));
+        emit ServerContractRemoved(address(_serverContract), modifications);
     }
 }
 
