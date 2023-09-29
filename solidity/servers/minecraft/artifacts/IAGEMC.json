@@ -1,0 +1,197 @@
+{
+	"deploy": {
+		"VM:-": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"main:1": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"ropsten:3": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"rinkeby:4": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"kovan:42": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"goerli:5": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"Custom": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		}
+	},
+	"data": {
+		"bytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"deployedBytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"immutableReferences": {},
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"gasEstimates": null,
+		"methodIdentifiers": {
+			"getServerDomainAddress()": "21821be2",
+			"getServerIpAddress()": "fea59eea",
+			"getServerName()": "cb6a9bc6",
+			"getServerPort()": "770dd3e3",
+			"setServerDetails(string,uint16,string,string)": "67c84b3f",
+			"setServerDomainAddress(string)": "175f247b",
+			"setServerIpAddress(string)": "1dadac52",
+			"setServerName(string)": "c330cb77",
+			"setServerPort(uint16)": "3b4b1d50"
+		}
+	},
+	"abi": [
+		{
+			"inputs": [],
+			"name": "getServerDomainAddress",
+			"outputs": [
+				{
+					"internalType": "string",
+					"name": "",
+					"type": "string"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "getServerIpAddress",
+			"outputs": [
+				{
+					"internalType": "string",
+					"name": "",
+					"type": "string"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "getServerName",
+			"outputs": [
+				{
+					"internalType": "string",
+					"name": "",
+					"type": "string"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "getServerPort",
+			"outputs": [
+				{
+					"internalType": "uint16",
+					"name": "",
+					"type": "uint16"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "ipString",
+					"type": "string"
+				},
+				{
+					"internalType": "uint16",
+					"name": "newServerPort",
+					"type": "uint16"
+				},
+				{
+					"internalType": "string",
+					"name": "newServerName",
+					"type": "string"
+				},
+				{
+					"internalType": "string",
+					"name": "newServerAddress",
+					"type": "string"
+				}
+			],
+			"name": "setServerDetails",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "newAddress",
+					"type": "string"
+				}
+			],
+			"name": "setServerDomainAddress",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "ipString",
+					"type": "string"
+				}
+			],
+			"name": "setServerIpAddress",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "newName",
+					"type": "string"
+				}
+			],
+			"name": "setServerName",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint16",
+					"name": "newPort",
+					"type": "uint16"
+				}
+			],
+			"name": "setServerPort",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]
+}
