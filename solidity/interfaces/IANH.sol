@@ -28,7 +28,7 @@
  */
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "../openzeppelin/contracts/interfaces/IERC20.sol";
 
 //Interface for interacting with the Anhydrite contract.
 interface IANH is IERC20 {

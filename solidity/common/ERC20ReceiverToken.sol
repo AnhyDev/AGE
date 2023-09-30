@@ -28,10 +28,11 @@
  */
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/interfaces/IERC165.sol";
-import "./interfaces/IERC1820Registry.sol";
-import "./interfaces/IERC20Receiver.sol";
+import "../openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "../openzeppelin/contracts/interfaces/IERC165.sol";
+import "../interfaces/IERC1820Registry.sol";
+import "../interfaces/IERC20Receiver.sol";
 import "./BaseUtility.sol";
 
 /*
@@ -55,7 +56,7 @@ import "./BaseUtility.sol";
  *   - ReturnOfThisToken: Logs when tokens are received from this contract itself.
  * 
  */
-abstract contract ERC20ReceiverToken is IERC20Receiver, ERC20Burnable, BaseUtility, IERC165 {
+abstract contract ERC20ReceiverToken is IERC20Receiver, ERC20, ERC20Burnable, BaseUtility, IERC165 {
 
     // The magic identifier for the ability in the external contract to cancel the token acquisition transaction
     bytes4 private ERC20ReceivedMagic;
@@ -68,7 +69,7 @@ abstract contract ERC20ReceiverToken is IERC20Receiver, ERC20Burnable, BaseUtili
     event ExceptionInfo(address indexed to, string exception);
 
 
-    constructor() {
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
         ERC20ReceivedMagic = IERC20Receiver(address(this)).onERC20Received.selector;
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IERC20Receiver"), address(this));

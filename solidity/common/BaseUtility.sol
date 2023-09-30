@@ -28,14 +28,11 @@
  */
 pragma solidity ^0.8.19;
 
-import "./interfaces/IANH.sol";
-import "./interfaces/IProxy.sol";
-import "./interfaces/IERC1820Registry.sol";
+import "../interfaces/IANH.sol";
+import "../interfaces/IProxy.sol";
+import "../interfaces/IERC1820Registry.sol";
 
 abstract contract BaseUtility {
-
-    // Address of the Main project token (ANH)
-    IANH public constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
 
     // Address of the ERC-1820 Registry
     IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
@@ -54,7 +51,5 @@ abstract contract BaseUtility {
     * @dev Retrieves and returns the address of the proxy contract by calling getProxyAddress function of the ANHYDRITE contract.
     * @return address The address of the proxy contract.
     */
-    function _getProxyAddress() private view returns (address) {
-        return ANHYDRITE.getProxyAddress();
-    }
+    function _getProxyAddress() internal view virtual returns (address);
 }

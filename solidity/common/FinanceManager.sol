@@ -28,9 +28,10 @@
  */
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/interfaces/IERC165.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "../openzeppelin/contracts/interfaces/IERC721.sol";
+import "../openzeppelin/contracts/interfaces/IERC20.sol";
+import "../openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title FinanceManager
@@ -38,7 +39,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * It provides a mechanism to transfer Ether, ERC20 tokens, and ERC721 tokens from
  * the contract's balance, accessible only by the owner.
  */
-abstract contract FinanceManager is IERC721Receiver, IERC165, Ownable {
+abstract contract FinanceManager is IERC721Receiver, Ownable {
 
     /**
      * @notice Transfers Ether from the contract's balance to a specified recipient.
@@ -83,13 +84,6 @@ abstract contract FinanceManager is IERC721Receiver, IERC165, Ownable {
      */
     function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
         return this.onERC721Received.selector;
-    }
-    
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return interfaceId == type(IERC721Receiver).interfaceId;
     }
     
     receive() external payable {}

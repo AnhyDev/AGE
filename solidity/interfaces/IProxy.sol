@@ -28,6 +28,8 @@
  */
 pragma solidity ^0.8.19;
 
+import "../openzeppelin/contracts/interfaces/IERC20.sol";
+
 //IProxy interface defines the methods a Proxy contract should implement.
 interface IProxy {
 	
