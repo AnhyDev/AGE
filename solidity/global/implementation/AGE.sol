@@ -36,124 +36,114 @@ import "../../common/ERC20Receiver.sol";
 import "../../openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "../../openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "../../openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "../../openzeppelin/contracts/utils/Counters.sol";
 
-//An interface declaring functions for the Anhydrite Gaming Ecosystem (AGE).
-interface IAGE {
- function VERSION() external pure returns (uint256);
- function addPrice(string memory name, uint256 count) external;
- function getPrice(bytes32 key) external view returns (uint256);
- function getServerFromTokenId(uint256 tokenId) external view returns (address);
- function getTokenIdFromServer(address serverAddress) external view returns (uint256);
-}
-
-//The main contract for the Anhydrite Gaming Ecosystem (AGE).
+// The main contract for the Anhydrite Gaming Ecosystem (AGE).
 contract AGE is
- IAGE,
- ERC20Receiver,
- OwnableManager,
- FinanceManager,
- ModuleManager,
- ERC721Enumerable,
- ERC721URIStorage,
- ERC721Burnable
+    IAGE,
+    ERC20Receiver,
+    OwnableManager,
+    FinanceManager,
+    ModuleManager,
+    ERC721Enumerable,
+    ERC721URIStorage,
+    ERC721Burnable
 {
- using Counters for Counters.Counter;
+    using Counters for Counters.Counter;
 
- // Defines the current version of the contract.
- uint256 public constant VERSION = 0;
- 
- // A counter to manage unique token IDs.
- Counters.Counter private _tokenIdCounter;
- 
- // Mapping between token IDs and corresponding contract addresses.
- mapping(uint256 => address) private _tokenContract;
- 
- // Mapping between contract addresses and their corresponding token IDs.
- mapping(address => uint256) private _contractToken;
+    // Defines the current version of the contract.
+    uint256 public constant VERSION = 0;
+    
+    // A counter to manage unique token IDs.
+    Counters.Counter private _tokenIdCounter;
+    
+    // Mapping between token IDs and corresponding contract addresses.
+    mapping(uint256 => address) private _tokenContract;
+    
+    // Mapping between contract addresses and their corresponding token IDs.
+    mapping(address => uint256) private _contractToken;
 
- struct Price {
-     string name;
-     uint256 price;
- }
- 
- // Mapping to store the price associated with each service name.
- mapping(bytes32 => Price) internal _prices;
- bytes32[] internal _priceArray;
+    struct Price {
+        string name;
+        uint256 price;
+    }
+    
+    // Mapping to store the price associated with each service name.
+    mapping(bytes32 => Price) internal _prices;
+    bytes32[] internal _priceArray;
 
- constructor() ERC721("Anhydrite Gaming Ecosystem", "AGE") {
-     uint256 tokenId = _tokenIdCounter.current();
-     _tokenIdCounter.increment();
-     _safeMint(msg.sender, tokenId);
-     _setTokenURI(tokenId, "ipfs://bafkreif66z2aeoer6lyujghufat3nxtautrza3ucemwcwgfiqpajjlcroy");
-     _tokenContract[tokenId] = msg.sender;
- }
+    constructor() ERC721("Anhydrite Gaming Ecosystem", "AGE") {
+        uint256 tokenId = _tokenIdCounter.current();
+        _tokenIdCounter.increment();
+        _safeMint(msg.sender, tokenId);
+        _setTokenURI(tokenId, "ipfs://bafkreif66z2aeoer6lyujghufat3nxtautrza3ucemwcwgfiqpajjlcroy");
+        _tokenContract[tokenId] = msg.sender;
+    }
 
- // Allows the owner to set the price for a specific service.
- function addPrice(string memory name, uint256 count) public override onlyOwner {
-     bytes32 key = keccak256(abi.encodePacked(name));
-     if (bytes(_prices[key].name).length == 0) {
-         _priceArray.push(key);
-     }
-     _prices[key] = Price(name, count);
- }
+    // Allows the owner to set the price for a specific service.
+    function addPrice(string memory name, uint256 count) public override onlyOwner {
+        bytes32 key = keccak256(abi.encodePacked(name));
+        if (bytes(_prices[key].name).length == 0) {
+            _priceArray.push(key);
+        }
+        _prices[key] = Price(name, count);
+    }
 
- // Retrieves the price for a given service name.
- function getPrice(bytes32 key) public view override returns (uint256) {
-     return _prices[key].price;
- }
- 
- function getPrices() public view returns (Price[] memory) {
-     uint256 length = _priceArray.length;
-     Price[] memory prices = new Price[](length);
-     
-     for (uint256 i = 0; i < length; i++) {
-         prices[i] = _prices[_priceArray[i]];
-     }
-     
-     return prices;
- }
+    // Retrieves the price for a given service name.
+    function getPrice(bytes32 key) public view override returns (uint256) {
+        return _prices[key].price;
+    }
+    
+    function getPrices() public view returns (Price[] memory) {
+        uint256 length = _priceArray.length;
+        Price[] memory prices = new Price[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            prices[i] = _prices[_priceArray[i]];
+        }
+        
+        return prices;
+    }
 
- // Retrieves the address of the server associated with a given token ID.
- function getServerFromTokenId(uint256 tokenId) public view override returns (address) {
-     return _tokenContract[tokenId];
- }
+    // Retrieves the address of the server associated with a given token ID.
+    function getServerFromTokenId(uint256 tokenId) public view override returns (address) {
+        return _tokenContract[tokenId];
+    }
 
- // Retrieves the token ID associated with a given server address.
- function getTokenIdFromServer(address serverAddress) public view override returns (uint256) {
-     return _contractToken[serverAddress];
- }
+    // Retrieves the token ID associated with a given server address.
+    function getTokenIdFromServer(address serverAddress) public view override returns (uint256) {
+        return _contractToken[serverAddress];
+    }
 
- // Overrides the tokenURI function to provide the URI for each token.
- function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
-     return super.tokenURI(tokenId);
- }
+    // Overrides the tokenURI function to provide the URI for each token.
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+        return super.tokenURI(tokenId);
+    }
 
- // Checks if the contract supports a specific interface.
- function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
-     return interfaceId == type(IAGE).interfaceId ||
-            interfaceId == type(IERC20Receiver).interfaceId ||
-            super.supportsInterface(interfaceId);
- }
+    // Checks if the contract supports a specific interface.
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage, ERC20Receiver) returns (bool) {
+        return interfaceId == type(IAGE).interfaceId ||
+               interfaceId == type(IERC20Receiver).interfaceId ||
+               super.supportsInterface(interfaceId);
+    }
 
- // Internal function to mint a token for a given server.
- function _mintTokenForServer(address serverAddress) internal override {
-     require(_contractToken[serverAddress] == 0, "AnhydriteGamingEcosystem: This contract has already used safeMint");
-     uint256 tokenId = _tokenIdCounter.current();
-     _tokenIdCounter.increment();
-     _tokenContract[tokenId] = serverAddress;
-     _contractToken[serverAddress] = tokenId;
+    // Internal function to mint a token for a given server.
+    function _mintTokenForServer(address serverAddress) internal override {
+        require(_contractToken[serverAddress] == 0, "AnhydriteGamingEcosystem: This contract has already used safeMint");
+        uint256 tokenId = _tokenIdCounter.current();
+        _tokenIdCounter.increment();
+        _tokenContract[tokenId] = serverAddress;
+        _contractToken[serverAddress] = tokenId;
 
-     _mint(serverAddress, tokenId);
-     _setTokenURI(tokenId, tokenURI(0));
- }
+        _mint(serverAddress, tokenId);
+        _setTokenURI(tokenId, tokenURI(0));
+    }
 
- // Internal function that is called before a token is transferred.
- function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal override(ERC721, ERC721Enumerable) {
-     super._beforeTokenTransfer(from, to, tokenId, batchSize);
- }
-
- // Internal function to burn a token.
- function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
-     super._burn(tokenId);
- }
+    function _update(address to, uint256 tokenId, address auth) internal virtual override(ERC721, ERC721Enumerable) returns (address) {
+        return super._update(to, tokenId, auth);
+    }
+    
+    function _increaseBalance(address account, uint128 value) internal virtual override(ERC721, ERC721Enumerable) {
+        super._increaseBalance(account, value);
+    }
 }

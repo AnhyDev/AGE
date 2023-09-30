@@ -46,8 +46,9 @@ contract SalesModule is IAGEModule, IERC165, SalesProcessing, FinanceManager, ER
     ModuleType private constant moduleType = ModuleType.Shop;
     string private constant moduleTypeString = "Shop";
 
-    constructor(address serverContract_, address factoryContractAddress) CashbackManager(serverContract_, factoryContractAddress)
-        Ownable(msg.sender) {
+    constructor(address serverContract_, address factoryContractAddress, address sender)
+        CashbackManager(serverContract_, factoryContractAddress)
+            Ownable(sender) {
 
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IAGEModule"), address(this));
     }

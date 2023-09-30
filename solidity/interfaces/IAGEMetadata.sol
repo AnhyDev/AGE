@@ -40,7 +40,7 @@ interface IAGEMetadata is IModuleType {
     
     function addServerData(uint256 gameId, string memory gameName, string memory contractName, string memory contractSymbol) external;
     
-    function getAllGames() external view returns (struct IAGEMetadata.GameInfo[] memory);
+    function getAllGames() external view returns (IAGEMetadata.GameInfo[] memory);
     
     function checkGameIdNotEmpty(uint256 gameId) external view returns (uint256);
     

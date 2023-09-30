@@ -51,11 +51,11 @@ contract TokenCashback is IAGEModule, BaseAnh, FinanceManager, ModuleCashbackTok
      */
     event ServerContractRemoved(address indexed serverContractAddress, uint256 numberOfModifications, uint256 numberRemoveCashbacs);
     
-    constructor(address serverAddress, address factoryContractAddress)
+    constructor(address serverAddress, address factoryContractAddress, address sender)
         ModuleCashbackTokens(serverAddress, factoryContractAddress)
             ERC20ReceiverToken(string(abi.encodePacked("TokenCashback ", _serverContract.name())),
                 string(abi.encodePacked(_serverContract.symbol(), "TC")))
-                    Ownable(msg.sender) {
+                    Ownable(sender) {
         
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IAGEModule"), address(this));
 

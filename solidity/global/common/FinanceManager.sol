@@ -28,64 +28,55 @@
  */
 pragma solidity ^0.8.19;
 
+import "../../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "../../openzeppelin/contracts/interfaces/IERC721.sol";
+import "../../openzeppelin/contracts/interfaces/IERC20.sol";
 import "./Ownable.sol";
-import "../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "../openzeppelin/contracts/interfaces/IERC721.sol";
-import "../openzeppelin/contracts/interfaces/IERC20.sol";
 
-
-/*
- * A smart contract that extends the UtilityVotingAndOwnable contract to provide financial management capabilities.
- * The contract allows for:
- * 1. Withdrawal of BNB to a designated address, which is the implementation address of an associated Proxy contract.
- * 2. Withdrawal of ERC20 tokens to the same designated address.
- * 3. Transfer of ERC721 tokens (NFTs) to the designated address.
- * All financial operations are restricted to the contract owner.
+/**
+ * @title FinanceManager
+ * @dev The FinanceManager contract is an abstract contract that extends Ownable.
+ * It provides a mechanism to transfer Ether, ERC20 tokens, and ERC721 tokens from
+ * the contract's balance, accessible only by the owner.
  */
 abstract contract FinanceManager is IERC721Receiver, Ownable {
 
     /**
-     * @dev Withdraws BNB from the contract to a designated address.
-     * @param amount Amount of BNB to withdraw.
+     * @notice Transfers Ether from the contract's balance to a specified recipient.
+     * @dev Can only be called by the contract owner.
+     * @param recipient The address to receive the transferred Ether.
+     * @param amount The amount of Ether to be transferred in wei.
      */
-    function withdrawMoney(uint256 amount) external onlyOwner {
-        address payable recipient = payable(_recepient());
+    function transferMoney(address payable recipient, uint256 amount) external onlyOwner {
         require(address(this).balance >= amount, "FinanceManager: Contract has insufficient balance");
+        require(recipient != address(0), "FinanceManager: Recipient address is the zero address");
         recipient.transfer(amount);
     }
-
+    
     /**
-     * @dev Withdraws ERC20 tokens from the contract.
+     * @notice Transfers ERC20 tokens from the contract's balance to a specified address.
+     * @dev Can only be called by the contract owner.
      * @param _tokenAddress The address of the ERC20 token contract.
-     * @param _amount The amount of tokens to withdraw.
+     * @param _to The recipient address to receive the transferred tokens.
+     * @param _amount The amount of tokens to be transferred.
      */
-    function withdrawERC20Tokens(address _tokenAddress, uint256 _amount) external onlyOwner {
+    function transferERC20Tokens(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
         require(token.balanceOf(address(this)) >= _amount, "FinanceManager: Not enough tokens on contract balance");
-        token.transfer(_recepient(), _amount);
+        token.transfer(_to, _amount);
     }
 
     /**
-     * @dev Transfers an ERC721 token from this contract.
+     * @notice Transfers an ERC721 token from the contract's balance to a specified address.
+     * @dev Can only be called by the contract owner.
      * @param _tokenAddress The address of the ERC721 token contract.
-     * @param _tokenId The ID of the token to transfer.
+     * @param _to The recipient address to receive the transferred token.
+     * @param _tokenId The unique identifier of the token to be transferred.
      */
-    function withdrawERC721Token(address _tokenAddress, uint256 _tokenId) external onlyOwner {
+    function transferERC721Token(address _tokenAddress, address _to, uint256 _tokenId) external onlyOwner {
         IERC721 token = IERC721(_tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "FinanceManager: The contract is not the owner of this token");
-        token.safeTransferFrom(address(this), _recepient(), _tokenId);
-    }
-
-    /**
-     * @dev Internal function to get the recipient address for withdrawals.
-     * @return The address to which assets should be withdrawn.
-     */
-    function _recepient() private view returns (address) {
-        address recepient = owner();
-        if (address(_proxyContract()) != address(0)) {
-            recepient = _proxyContract().implementation();
-        }
-        return recepient;
+        token.safeTransferFrom(address(this), _to, _tokenId);
     }
 
     /**

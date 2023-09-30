@@ -30,7 +30,6 @@ pragma solidity ^0.8.19;
 
 import "./BaseUtility.sol";
 import "../interfaces/IANH.sol";
-import "../interfaces/IProxy.sol";
 import "../interfaces/IERC1820Registry.sol";
 
 abstract contract BaseAnh is BaseUtility {
@@ -45,5 +44,10 @@ abstract contract BaseAnh is BaseUtility {
     */
     function _getProxyAddress() internal view override returns (address) {
         return ANHYDRITE.getProxyAddress();
+    }
+
+    // Checks whether the address is among the owners of the proxy contract
+    function _isProxyOwner(address senderAddress) internal view returns (bool) {
+        return _proxyContract().isProxyOwner(senderAddress);
     }
 }

@@ -28,7 +28,7 @@
  */
 pragma solidity ^0.8.19;
 
-import "../../common/BaseUtility.sol";
+import "../../common/BaseAnh.sol";
 import "../../interfaces/IAGEMonitoring.sol";
 
 /**
@@ -43,7 +43,7 @@ import "../../interfaces/IAGEMonitoring.sol";
  * `onlyOwner`, which can be applied to your functions to restrict their use to
  * the owner.
  */
-abstract contract Ownable is BaseUtility {
+abstract contract Ownable is BaseAnh {
     address private _owner;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);

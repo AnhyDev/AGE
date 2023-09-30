@@ -29,7 +29,7 @@
 pragma solidity ^0.8.19;
 
 import "../interfaces/IFactory.sol";
-import "../common/BaseUtility.sol";
+import "../common/BaseAnh.sol";
 import "../modules/Token/TokenCashback.sol";
 
 
@@ -39,7 +39,7 @@ import "../modules/Token/TokenCashback.sol";
  *      TokenCashback contracts. It allows for the dynamic deployment of new modules and their 
  *      removal when necessary, coordinating storage and management of the contracts.
  */
-contract FactoryTokenCashback is IFactory, BaseUtility {
+contract FactoryTokenCashback is IFactory, BaseAnh {
 
     /**
      * @dev List of addresses of deployed modules.
@@ -75,11 +75,8 @@ contract FactoryTokenCashback is IFactory, BaseUtility {
     function deployModule(string memory, string memory,
             address serverContractAddress, address ownerAddress, string memory /*info*/)
                 public onlyAllowed(serverContractAddress) returns (address) {
-
-        TokenCashback newModule = new TokenCashback(serverContractAddress, address(this));
-        if (ownerAddress != address(0)) {
-            newModule.transferOwnership(ownerAddress);
-        }
+        ownerAddress = ownerAddress != address(0) ? ownerAddress : msg.sender;
+        TokenCashback newModule = new TokenCashback(serverContractAddress, address(this), ownerAddress);
         
         isDeploy[serverContractAddress] = address(newModule);
         deployedModules.push(serverContractAddress);

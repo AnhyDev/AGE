@@ -43,7 +43,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     // Structure defining a Module with a name, type, type as a string, and the address of its factory contract.
     struct Module {
         string moduleName;
-        IGameData.ModuleType moduleType;
+        IAGEMetadata.ModuleType moduleType;
         string moduleTypeString;
         address moduleFactory;
     }
@@ -61,7 +61,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     // Adds a new Game Server module or pdates an existing Game Server module.
     function addOrUpdateGameServerModule(uint256 gameId, address contractAddress, bool update) external onlyOwner {
         (string memory moduleName,) = _getServerData(gameId);
-        uint256 uintType = uint256(IAGEMetadata.ModuleType.Server);
+        uint256 uintType = uint256(IModuleType.ModuleType.Server);
         _addModule(moduleName, uintType, contractAddress, update);
     }
 
@@ -70,7 +70,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
         bytes32 hash = _getModuleHash(moduleName, uintType);
         bool exist = _modules[hash].moduleFactory != address(0);
         bool isRevert = true;
-        IAGEMetadata.ModuleType moduleType = IAGEMetadata.ModuleType(uintType);
+        IAGEMetadata.ModuleType moduleType = IModuleType.ModuleType(uintType);
         Module memory module  = Module({
             moduleName: moduleName,
             moduleType: moduleType,
@@ -99,7 +99,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     function removeModule(string memory moduleName, uint256 uintType) external  onlyOwner {
         bytes32 hash = _getModuleHash(moduleName, uintType);
         if (_modules[hash].moduleFactory != address(0)) {
-            _modules[hash] = Module("", IGameData.ModuleType.Server, "", address(0));
+            _modules[hash] = Module("", IModuleType.ModuleType.Server, "", address(0));
             for (uint256 i = 0; i < _moduleList.length; i++) {
                 if (_moduleList[i] == hash) {
                     _moduleList[i] = _moduleList[_moduleList.length - 1];
@@ -125,7 +125,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     // Internal function to get modules filtered by type.
     function _getFilteredModules(uint256 filterType) private view returns (Module[] memory) {
         uint256 count = 0;
-        IAGEMetadata.ModuleType filteredType = IAGEMetadata.ModuleType(filterType);
+        IAGEMetadata.ModuleType filteredType = IModuleType.ModuleType(filterType);
 
         for (uint256 i = 0; i < _moduleList.length; i++) {
             bytes32 hash = _moduleList[i];
@@ -159,15 +159,15 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress)
       external onlyServerAutorised(msg.sender) returns (address) {
         uint256 END_OF_LIST = 1000;
-        return _deploy(END_OF_LIST, factoryName, uintType, ownerAddress);
+        return _deploy(END_OF_LIST, factoryName, uintType, ownerAddress, "");
     }
 
     // Deploys a new game server contract and adds it to monitoring.
-    function deployServerContract(uint256 gameId) external returns (address) {
-        uint256 uintType = uint256(IAGEMetadata.ModuleType.Server);
+    function deployServerContract(uint256 gameId, string memory info) external returns (address) {
+        uint256 uintType = uint256(IModuleType.ModuleType.Server);
         (string memory contractName,) = _getServerData(gameId);
 
-        address minecraftServerAddress = _deploy(gameId, contractName, uintType, address(0));
+        address minecraftServerAddress = _deploy(gameId, contractName, uintType, address(0), info);
 
         _mintTokenForServer(minecraftServerAddress);
         _addServerToMonitoring(gameId, minecraftServerAddress);

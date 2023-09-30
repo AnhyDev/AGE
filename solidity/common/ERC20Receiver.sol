@@ -32,6 +32,7 @@ import "../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../interfaces/IERC1820Registry.sol";
 import "../interfaces/IERC20Receiver.sol";
 import "./BaseUtility.sol";
+import "./BaseAnh.sol";
 
 /**
  * @title ERC20Receiver Abstract Contract
@@ -47,7 +48,7 @@ import "./BaseUtility.sol";
  *      Functions include:
  *      - onERC20Received: Overridden from IERC20Receiver, handles incoming ERC20 token transfers.
  */
-abstract contract ERC20Receiver is IERC20Receiver, IERC165, BaseUtility {
+abstract contract ERC20Receiver is IERC20Receiver, IERC165, BaseUtility, BaseAnh {
 
     // Event emitted when Anhydrite tokens are deposited.
     event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);

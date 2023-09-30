@@ -29,8 +29,8 @@
 pragma solidity ^0.8.19;
 
 import "../interfaces/IFactory.sol";
-import "../common/BaseUtility.sol";
-import "../modules/Token/TokenCashback.sol";
+import "../common/BaseAnh.sol";
+import "../modules/Shop/SalesModule/SalesModule.sol";
 
 
 /**
@@ -39,7 +39,7 @@ import "../modules/Token/TokenCashback.sol";
  *      SalesModule contracts. It allows for the dynamic deployment of new modules and their 
  *      removal when necessary, coordinating storage and management of the contracts.
  */
-contract FactorySalesModule is IFactory, BaseUtility {
+contract FactorySalesModule is IFactory, BaseAnh {
 
     /**
      * @dev List of addresses of deployed modules.
@@ -75,8 +75,8 @@ contract FactorySalesModule is IFactory, BaseUtility {
     function deployModule(string memory, string memory,
             address serverContractAddress, address ownerAddress, string memory /*info*/)
                 external onlyAllowed(serverContractAddress) returns (address) {
-
-        SalesModule newModule = new SalesModule(serverContractAddress, address(this));
+        ownerAddress = ownerAddress != address(0) ? ownerAddress : msg.sender;
+        SalesModule newModule = new SalesModule(serverContractAddress, address(this), ownerAddress);
         if (ownerAddress != address(0)) {
             newModule.transferOwnership(ownerAddress);
         }

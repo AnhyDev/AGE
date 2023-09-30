@@ -1,0 +1,9 @@
+**/target/
+**/*.iml
+**/*.log
+**/.classpath
+**/.project
+**/.settings/
+**/.idea/
+**//bin/
+solidity/**/artifacts/
