@@ -13,7 +13,6 @@ The contract is built by extending multiple contracts and interfaces:
 - [**VotingNewImplementation**: Voting logic for changing the logic implementation of the Proxy.](#votingnewimplementation)
 - [**VotingNewOwner**: Voting logic for adding a new owner.](#votingnewowner)
 - [**VotingRemoveOwner**: Voting logic for removing an existing owner.](#votingremoveowner)
-- [**IERC20Receiver**: Interface for contracts capable of receiving ERC20 tokens.](#ierc20receiver)
 
 ### Functionalities
 

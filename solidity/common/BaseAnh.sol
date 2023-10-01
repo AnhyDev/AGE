@@ -35,7 +35,7 @@ import "../interfaces/IERC1820Registry.sol";
 abstract contract BaseAnh is BaseUtility {
 
     // Address of the Main project token (ANH)
-    IANH public constant ANHYDRITE = IANH(0x47E0CdCB3c7705Ef6fA57b69539D58ab5570799F);
+    IANH public constant ANHYDRITE = IANH(0x6B170dFf5586a22D25a9E2543C398449530A277a);
 
     /**
     * @notice Returns the proxy contract address from the Anhydrite contract.

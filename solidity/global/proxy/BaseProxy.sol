@@ -82,6 +82,22 @@ abstract contract BaseProxy is BaseAnh {
         return IERC165(contractAddress).supportsInterface(type(IAGE).interfaceId);
     }
 
-    // Abstract function, increases interest for specific owner 
-    function _increaseByPercent(address recepient) internal virtual;
+    // Increases interest for specific owner
+    function _increaseByPercent(address recepient) internal {
+        if (address(0) != recepient) {
+            uint256 percent = _tokensNeededForOwnership * 1 / 100;
+            _balanceOwner[recepient] += percent;
+        }
+    }
+
+    // Increases interest for voting participants
+    function _increaseByPercent(address[] memory addresses1, address[] memory addresses2) internal {
+        for (uint256 i = 0; i < addresses1.length; i++) {
+            _increaseByPercent(addresses1[i]);
+        }
+
+        for (uint256 j = 0; j < addresses2.length; j++) {
+            _increaseByPercent(addresses2[j]);
+        }
+    }
 }

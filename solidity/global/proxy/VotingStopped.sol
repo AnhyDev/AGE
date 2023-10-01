@@ -28,10 +28,11 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "./BaseProxy.sol";
+import "../common/VoteUtility.sol";
 
 //This contract extends BaseUtilityAndOwnable and is responsible for voting to stop/resume services
-abstract contract VotingStopped is VoteUtility {
+abstract contract VotingStopped is VoteUtility, BaseProxy {
 
 
     VoteResult internal _votesForStopped;
@@ -59,7 +60,8 @@ abstract contract VotingStopped is VoteUtility {
         _voteForStopped(vote);
     }
     // Internal function to handle the vote logic
-    function _voteForStopped(bool vote) internal hasNotVoted(_votesForStopped) {
+    function _voteForStopped(bool vote) internal {
+        _checkOwnerVoted(_votesForStopped);
         require(_stopped != _proposedStopped, "VotingStopped: There is no active voting on this issue");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForStopped, vote);

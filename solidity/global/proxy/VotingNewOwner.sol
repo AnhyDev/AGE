@@ -28,9 +28,12 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "./BaseProxy.sol";
+import "../common/VoteUtility.sol";
+
+
 // This abstract contract is designed for handling the voting process for new owners.
-abstract contract VotingNewOwner is VoteUtility {
+abstract contract VotingNewOwner is VoteUtility, BaseProxy {
    
     // Internal state variables 
     address internal _proposedOwner;
@@ -63,7 +66,8 @@ abstract contract VotingNewOwner is VoteUtility {
     }
 
     // Function to cast a vote for adding a new owner
-    function voteForNewOwner(bool vote) public proxyOwner hasNotVoted(_votesForNewOwner) {
+    function voteForNewOwner(bool vote) public proxyOwner {
+        _checkOwnerVoted(_votesForNewOwner);
         require(_proposedOwner != address(0), "VotingNewOwner: There is no active voting on this issue");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewOwner, vote);
@@ -96,6 +100,11 @@ abstract contract VotingNewOwner is VoteUtility {
 
     // Function to get the status of the ongoing vote for the new owner
     function getVoteForNewOwnerStatus() public view returns (address, uint256, uint256, uint256) {
-        return _getVote(_votesForNewOwner, _proposedOwner);
+        return (
+            _proposedOwner, 
+            _votesForNewOwner.isTrue.length, 
+            _votesForNewOwner.isFalse.length, 
+            _votesForNewOwner.timestamp
+        );
     }
 }

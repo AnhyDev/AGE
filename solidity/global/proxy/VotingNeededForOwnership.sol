@@ -28,11 +28,13 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "./BaseProxy.sol";
+import "../common/VoteUtility.sol";
 
 
 // This contract extends BaseUtilityAndOwnable and is responsible for voting to tokens required for ownership rights
-abstract contract VotingNeededForOwnership is VoteUtility {
+abstract contract VotingNeededForOwnership is VoteUtility, BaseProxy {
+
 
     // Holds the proposed new token count needed for voting rights
     uint256 internal _proposedTokensNeeded;
@@ -62,7 +64,8 @@ abstract contract VotingNeededForOwnership is VoteUtility {
         _voteForNeededForOwnership(vote);
     }
     // Internal function to handle the vote logic
-    function _voteForNeededForOwnership(bool vote) internal hasNotVoted(_votesForTokensNeeded) {
+    function _voteForNeededForOwnership(bool vote) internal {
+        _checkOwnerVoted(_votesForTokensNeeded);
         require(_proposedTokensNeeded != 0, "VotingNeededForOwnership: There is no active voting on this issue");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForTokensNeeded, vote);

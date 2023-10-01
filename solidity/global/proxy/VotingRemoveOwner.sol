@@ -28,10 +28,12 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "./BaseProxy.sol";
+import "../common/VoteUtility.sol";
+
 
 // Abstract contract for voting to remove an owner.
-abstract contract VotingRemoveOwner is VoteUtility {
+abstract contract VotingRemoveOwner is VoteUtility, BaseProxy {
     
     // Holds the proposed to remove an owner
     address internal _proposedRemoveOwner;
@@ -63,7 +65,8 @@ abstract contract VotingRemoveOwner is VoteUtility {
         _voteForRemoveOwner(vote);
     }
     // Internal function handling the voting logic
-    function _voteForRemoveOwner(bool vote) internal hasNotVoted(_votesForRemoveOwner) {
+    function _voteForRemoveOwner(bool vote) internal {
+        _checkOwnerVoted(_votesForRemoveOwner);
         require(_proposedRemoveOwner != msg.sender, "VotingRemoveOwner: You cannot vote for yourself");
         require(_proposedRemoveOwner != address(0), "VotingRemoveOwner: There is no active voting on this issue");
 
@@ -102,6 +105,11 @@ abstract contract VotingRemoveOwner is VoteUtility {
 
     // Function to get the current status of the vote to remove an owner
     function getVoteForRemoveOwnerStatus() public view returns (address, uint256, uint256, uint256) {
-        return _getVote(_votesForRemoveOwner, _proposedRemoveOwner);
+        return (
+            _proposedRemoveOwner, 
+            _votesForRemoveOwner.isTrue.length, 
+            _votesForRemoveOwner.isFalse.length, 
+            _votesForRemoveOwner.timestamp
+        );
     }
 }

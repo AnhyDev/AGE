@@ -28,10 +28,12 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "./BaseProxy.sol";
+import "../common/VoteUtility.sol";
 
 // This contract extends BaseUtilityAndOwnable and is responsible for voting on new implementations
-abstract contract VotingNewImplementation is VoteUtility {
+abstract contract VotingNewImplementation is VoteUtility, BaseProxy {
+
 
     // Internal state variables to store proposed implementation and voting results
     address internal _proposedImplementation;
@@ -61,7 +63,8 @@ abstract contract VotingNewImplementation is VoteUtility {
         _voteForNewImplementation(vote);
     }
     // Internal function to handle the logic for voting for the proposed new implementation
-    function _voteForNewImplementation(bool vote) internal hasNotVoted(_votesForNewImplementation) {
+    function _voteForNewImplementation(bool vote) internal {
+        _checkOwnerVoted(_votesForNewImplementation);
         require(_proposedImplementation != address(0), "VotingNewImplementation: There is no active voting on this issue");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewImplementation, vote);
@@ -93,6 +96,11 @@ abstract contract VotingNewImplementation is VoteUtility {
 
     // Function to get the status of voting for the proposed new implementation
     function getVoteForNewImplementationStatus() public view returns (address, uint256, uint256, uint256) {
-        return _getVote(_votesForNewImplementation, _proposedImplementation);
+        return (
+            _proposedImplementation, 
+            _votesForNewImplementation.isTrue.length, 
+            _votesForNewImplementation.isFalse.length, 
+            _votesForNewImplementation.timestamp
+        );
     }
 }
