@@ -28,7 +28,7 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "../common/VoteUtility.sol";
 import "../../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../../interfaces/IERC20Receiver.sol";
 
@@ -101,7 +101,8 @@ abstract contract WhiteListManager is VoteUtility {
     }
 
     // Internal function to handle the vote casting and evaluation logic
-    function _voteForContract(bool vote) private hasNotVoted(_votesForContract) {
+    function _voteForContract(bool vote) private {
+        _checkOwnerVoted(_votesForContract);
         require(_proposedContract != address(0), "WhiteListManager: there are no votes at this address");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForContract, vote);

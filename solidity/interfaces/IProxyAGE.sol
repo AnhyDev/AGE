@@ -31,5 +31,20 @@ pragma solidity ^0.8.19;
 
 import "./IProxy.sol";
 import "./IAGE.sol";
+import "./IAGEMetadata.sol";
 
-interface IProxyAGE is IProxy, IAGE {}
+interface IProxyAGE is IProxy, IAGE {
+
+    // Utility function to get string representation of a ModuleType enum.
+    function getModuleTypeString(IAGEMetadata.ModuleType moduleType) external view returns (string memory);
+
+    // This function sets the address of the contract that will store game server metadata
+    function setGameServerMetadata(address contracrAddress) external;
+
+    // This function gets the address of the game server metadata contract
+    function getGameServerMetadata() external view returns (address);
+
+    // This function gets the game server data based on a given ID
+    function getServerData(uint256 gameId) external view returns (string memory, string memory);
+    
+}

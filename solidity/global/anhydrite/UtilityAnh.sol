@@ -69,7 +69,7 @@ abstract contract UtilityAnh is BaseUtility {
     }
 
     // Checks if an address is an owner of the proxy contract, as per the proxy contract's own rules.
-    function _isProxyOwner(address senderAddress) internal view returns (bool) {
+    function _isProxyOwner(address senderAddress) internal view override returns (bool) {
         return _proxyContract().isProxyOwner(senderAddress);
     }
 

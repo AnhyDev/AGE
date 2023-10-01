@@ -28,16 +28,33 @@
  */
 pragma solidity ^0.8.19;
 
+//Interface defining the essential functions for the AnhydriteMonitoring smart contract.
 interface IAGEMonitoring {
-	
-    function addServerAddress(uint256 gameId, address serverAddress) external;
-    
-    function voteForServer(address voterAddress, address serverAddress) external;
-    
-    function getServerVotes(address serverAddress) external view returns (uint256);
-    
-    function isServerExist(address serverAddress) external view returns (bool);
-    
-    function getServerBlocked(address serverAddress) external view returns (bool, uint256);
-    
+ // Functions to add or remove server addresses.
+ function addServerAddress(uint256 gameId, address serverAddress) external;
+ function removeServerAddress(address serverAddress) external;
+ 
+ // Voting mechanism handlers
+ function voteForServer(address voterAddress, address serverAddress) external;
+ function voteForServerWith10(address voterAddress, address serverAddress) external;
+ function voteForServerWith100(address voterAddress, address serverAddress) external;
+ function voteForServerWith1000(address voterAddress, address serverAddress) external;
+ function voteForServerWith10000(address voterAddress, address serverAddress) external;
+ function voteForServerWith100000(address voterAddress, address serverAddress) external;
+ function voteForServerWith1000000(address voterAddress, address serverAddress) external;
+ 
+ // Transaction burn fee calculators
+ function getBurnFeeFor1Vote() external view returns (uint256);
+ function getBurnFeeFor10Votes() external view returns (uint256);
+ function getBurnFeeFor100Votes() external view returns (uint256);
+ function getBurnFeeFor1000Votes() external view returns (uint256);
+ function getBurnFeeFor10000Votes() external view returns (uint256);
+ function getBurnFeeFor100000Votes() external view returns (uint256);
+ function getBurnFeeFor1000000Votes() external view returns (uint256);
+ 
+ // Functions to get information about servers.
+ function getServerVotes(address serverAddress) external view returns (uint256);
+ function getGameServerAddresses(uint256 gameId, uint256 startIndex, uint256 endIndex) external view returns (address[] memory);
+ function isServerExist(address serverAddress) external view returns (bool);
+ function getServerBlocked(address serverAddress) external view returns (bool, uint256);
 }

@@ -32,7 +32,7 @@ import "../../common/ERC20ReceiverToken.sol";
 import "./FinanceManager.sol";
 import "./TokenManager.sol";
 import "./ProxyManager.sol";
-import "./OwnableManager.sol";
+import "../common/OwnableManager.sol";
 import "./WhiteListManager.sol";
 
 

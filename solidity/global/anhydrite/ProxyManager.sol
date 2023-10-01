@@ -28,7 +28,8 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "../common/VoteUtility.sol";
+import "./UtilityAnh.sol";
 
 /*
  * This abstract contract extends the UtilityVotingAndOwnable contract to facilitate governance of smart contract proxies.
@@ -41,7 +42,7 @@ import "./VoteUtility.sol";
  * 6. Events to log voting actions and outcomes for transparency and auditing purposes.
  * 7. Utility functions to check the status of the active vote and the validity of the proposed proxy address.
  */
-abstract contract ProxyManager is VoteUtility {
+abstract contract ProxyManager is VoteUtility, UtilityAnh {
 
     // A new smart contract proxy address is proposed
     address private _proposedProxy;
@@ -71,7 +72,8 @@ abstract contract ProxyManager is VoteUtility {
     }
 
     // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
-    function _voteForNewProxy(bool vote) private hasNotVoted(_votesForNewProxy) {
+    function _voteForNewProxy(bool vote) private {
+        _checkOwnerVoted(_votesForNewProxy);
         require(_proposedProxy != address(0), "ProxyManager: there are no votes at this address");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewProxy, vote);

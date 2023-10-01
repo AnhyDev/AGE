@@ -28,7 +28,7 @@
  */
 pragma solidity ^0.8.19;
 
-import "./VoteUtility.sol";
+import "../common/VoteUtility.sol";
 
 
 /*
@@ -78,7 +78,8 @@ abstract contract TokenManager is VoteUtility {
     }
 
     // Votes must reach a 60% threshold to pass. If over 40% are downvotes, the measure fails.
-    function _voteForTransfer(bool vote) private hasNotVoted(_votesForTransfer) {
+    function _voteForTransfer(bool vote) private {
+        _checkOwnerVoted(_votesForTransfer);
         require(_proposedTransferAmount != 0, "TokenManager: There is no active voting on this issue");
 
         (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForTransfer, vote);

@@ -40,4 +40,10 @@ interface IANH is IERC20 {
     function getMaxSupply() external pure returns (uint256);
     // Transfers tokens for the proxy.
     function transferForProxy(uint256 amount) external;
+
+    
+    // ERC20Burnable function burn.
+    function burn(uint256 amount) external;
+    // ERC20Burnable function burnFrom.
+    function burnFrom(address account, uint256 amount) external;
 }

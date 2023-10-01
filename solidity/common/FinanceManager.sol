@@ -82,7 +82,7 @@ abstract contract FinanceManager is IERC721Receiver, Ownable {
     /**
      * @notice The onERC721Received function is used to process the receipt of ERC721 tokens.
      */
-    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override virtual returns (bytes4) {
         return this.onERC721Received.selector;
     }
     

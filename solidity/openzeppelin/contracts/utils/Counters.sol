@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (utils/Counters.sol)
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 library Counters {
     struct Counter {
