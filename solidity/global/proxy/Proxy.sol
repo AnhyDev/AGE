@@ -1,17 +1,23 @@
+// SPDX-License-Identifier: Apache License 2.0
 /*
  * Copyright (C) 2023 Anhydrite Gaming Ecosystem
  *
  * This code is part of the Anhydrite Gaming Ecosystem.
  *
- * ERC-20 Token: Anhydrite ANH 0x578b350455932aC3d0e7ce5d7fa62d7785872221
+ * ERC-20 Token: Anhydrite ANH
  * Network: Binance Smart Chain
  * Website: https://anh.ink
+ * GitHub: https://github.com/Anhydr1te/AnhydriteGamingEcosystem
  *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that explicit attribution to the original code and website
  * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * Portions of this code are derived from OpenZeppelin contracts, which are licensed
+ * under the MIT License. Those portions are not subject to this license. For details,
+ * see https://github.com/OpenZeppelin/openzeppelin-contracts
  *
  * This code is provided as-is, without warranty of any kind, express or implied,
  * including but not limited to the warranties of merchantability, fitness for a 
@@ -20,19 +26,12 @@
  * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
  * with the software or the use or other dealings in the software.
  */
+pragma solidity ^0.8.19;
 
-/*
-* The abstract proxy smart contract that implements the IProxy interface,
-* the main goal here is to delegate calls to the global smart contract,
-* to set the project's main token.
-*
-* In addition, the possibility of depositing tokens by owners to their account in a smart contract,
-* withdrawing excess tokens, as well as voluntary exit from owners is realized here.
-* There is also an opportunity to get information about the global token, about the owners,
-* their deposits, to find out whether the address is among the owners, as well as whether it has the right to vote.
-*/
+import "./BaseProxy.sol";
+
 // Proxy is an abstract contract that implements the IProxy interface and adds utility and ownership functionality.
-abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
+abstract contract Proxy is IProxy, BaseProxy {
 
     // Internal function that delegates calls to the implementation contract
     function _delegate() internal virtual {
@@ -66,7 +65,8 @@ abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
 
     // Function to forward Ether received to the implementation contract
     receive() external payable {
-        Address.sendValue(payable(address(_implementation())), msg.value);
+        address payable recipient = payable(address(_implementation()));
+        recipient.transfer(msg.value);
     }
 
     // Returns the main ERC20 token of the project
@@ -112,5 +112,13 @@ abstract contract Proxy is IProxy, BaseUtilityAndOwnable {
     // Checks if an address is blacklisted
     function isBlacklisted(address account) external override view returns (bool) {
         return _blackList[account];
+    }
+
+    // Increases interest for voting participants
+    function increase(address[] memory addresses) external {
+        require(msg.sender == address(ANHYDRITE), "Proxy: This is a disabled feature for you");
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _increaseByPercent(addresses[i]);
+        }
     }
 }

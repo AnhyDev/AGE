@@ -1,17 +1,23 @@
+// SPDX-License-Identifier: Apache License 2.0
 /*
  * Copyright (C) 2023 Anhydrite Gaming Ecosystem
  *
  * This code is part of the Anhydrite Gaming Ecosystem.
  *
- * ERC-20 Token: Anhydrite ANH 0x578b350455932aC3d0e7ce5d7fa62d7785872221
+ * ERC-20 Token: Anhydrite ANH
  * Network: Binance Smart Chain
  * Website: https://anh.ink
+ * GitHub: https://github.com/Anhydr1te/AnhydriteGamingEcosystem
  *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that explicit attribution to the original code and website
  * is maintained. For detailed terms, please contact the Anhydrite Gaming Ecosystem team.
+ *
+ * Portions of this code are derived from OpenZeppelin contracts, which are licensed
+ * under the MIT License. Those portions are not subject to this license. For details,
+ * see https://github.com/OpenZeppelin/openzeppelin-contracts
  *
  * This code is provided as-is, without warranty of any kind, express or implied,
  * including but not limited to the warranties of merchantability, fitness for a 
@@ -20,9 +26,11 @@
  * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
  * with the software or the use or other dealings in the software.
  */
+pragma solidity ^0.8.19;
 
+import "./VoteUtility.sol";
 // This abstract contract is designed for handling the voting process for new owners.
-abstract contract VotingNewOwner is BaseUtilityAndOwnable {
+abstract contract VotingNewOwner is VoteUtility {
    
     // Internal state variables 
     address internal _proposedOwner;
@@ -41,11 +49,11 @@ abstract contract VotingNewOwner is BaseUtilityAndOwnable {
 
     // Function to initiate the process to become an owner
     function initiateOwnershipRequest() public {
-        require(!_owners[msg.sender], "Votes: Already an owner");
-        require(!_blackList[msg.sender], "Votes: This address is blacklisted");
-        require(_proposedOwner == address(0) || block.timestamp >= _votesForNewOwner.timestamp + 7 days, "Votes: Voting on this issue is already underway");
-        require(block.timestamp >= _initiateOwners[msg.sender] + 30 days, "Votes: Voting is still open");
-        require(_balanceOwner[msg.sender] >= _tokensNeededForOwnership, "Votes: Not enough Anhydrite to join the owners");
+        require(!_owners[msg.sender], "VotingNewOwner: Already an owner");
+        require(!_blackList[msg.sender], "VotingNewOwner: This address is blacklisted");
+        require(_proposedOwner == address(0) || block.timestamp >= _votesForNewOwner.timestamp + 7 days, "VotingNewOwner: Voting on this issue is already underway");
+        require(block.timestamp >= _initiateOwners[msg.sender] + 30 days, "VotingNewOwner: Voting is still open");
+        require(ANHYDRITE.balanceOf(msg.sender) >= _tokensNeededForOwnership, "VotingNewOwner: Not enough Anhydrite to join the owners");
 
         _initiateOwners[msg.sender] = block.timestamp;
 
@@ -55,29 +63,32 @@ abstract contract VotingNewOwner is BaseUtilityAndOwnable {
     }
 
     // Function to cast a vote for adding a new owner
-    function voteForNewOwner(bool vote) public onlyOwner hasNotVoted(_votesForNewOwner) {
-        require(_proposedOwner != address(0), "Votes: There is no active voting on this issue");
+    function voteForNewOwner(bool vote) public proxyOwner hasNotVoted(_votesForNewOwner) {
+        require(_proposedOwner != address(0), "VotingNewOwner: There is no active voting on this issue");
 
-        (uint votestrue, uint votesfalse) = _votes(_votesForNewOwner, vote);
+        (uint256 votestrue, uint256 votesfalse, VoteResultType result) = _votes(_votesForNewOwner, vote);
 
         emit VotingForNewOwner(msg.sender, _proposedOwner, vote);
 
-        if (votestrue * 100 >= _totalOwners * 60) {
+        if (result == VoteResultType.Approved) {
             _owners[_proposedOwner] = true;
             _totalOwners++;
-            _resetVote(_votesForNewOwner);
-            emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
-        } else if (votesfalse * 100 > _totalOwners * 40) {
-            _resetVote(_votesForNewOwner);
-            emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
-            _proposedOwner = address(0);
+            _completionVotingNewOwner(vote, votestrue, votesfalse);
+        } else if (result == VoteResultType.Rejected) {
+            _completionVotingNewOwner(vote, votestrue, votesfalse);
         }
+    }
+
+    // Completion of voting
+    function _completionVotingNewOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
+        emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+        _resetVote(_votesForNewOwner);
+        _proposedOwner = address(0);
     }
     
     // Function to forcibly close the voting for a new owner if a decision hasn't been made in 3 days
-    function closeVoteForNewOwner() public onlyOwner {
-        require(_proposedOwner != address(0), "There is no open vote");
+    function closeVoteForNewOwner() public proxyOwner {
+        require(_proposedOwner != address(0), "VotingNewOwner: There is no open vote");
         emit CloseVoteForNewOwner(msg.sender, _proposedOwner, _votesForNewOwner.isTrue.length, _votesForNewOwner.isFalse.length);
         _closeVote(_votesForNewOwner);
         _proposedOwner = address(0);
