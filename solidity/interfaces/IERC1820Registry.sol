@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache License 2.0
 
+ 
+// @filepath Repository Location: [solidity/interfaces/IERC1820Registry.sol]
+
 pragma solidity ^0.8.19;
 
 /**

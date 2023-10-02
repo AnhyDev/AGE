@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT
+
+// @filepath Repository Location: [solidity/global/metadata/WhatIsAnhydrite.sol]
+
 pragma solidity ^0.8.19;
 
 contract WhatIsAnhydrite {

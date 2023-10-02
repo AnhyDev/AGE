@@ -26,6 +26,9 @@
  * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
  * with the software or the use or other dealings in the software.
  */
+
+// @filepath Repository Location: [solidity/global/implementation/MonitoringManager.sol]
+
 pragma solidity ^0.8.19;
 
 import "../common/Ownable.sol";

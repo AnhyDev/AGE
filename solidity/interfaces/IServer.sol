@@ -26,15 +26,19 @@
  * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
  * with the software or the use or other dealings in the software.
  */
+ 
+// @filepath Repository Location: [solidity/interfaces/IServer.sol]
+
 pragma solidity ^0.8.19;
 
 import "../openzeppelin/contracts/interfaces/IERC721.sol";
 import "../openzeppelin/contracts/interfaces/IERC721Metadata.sol";
 import "./ICashbackStorage.sol";
 import "./IServerModules.sol";
+import "./IAGEMinecraft.sol";
 
 /**
  * @title IServer
  * @dev Interface to represent the Server contract which manages and provides the cashback data.
  */
-interface IServer is IServerModules, ICashbackStorage, IERC721, IERC721Metadata {}
+interface IServer is IServerModules, ICashbackStorage, IERC721, IERC721Metadata, IAGEMinecraft {}
