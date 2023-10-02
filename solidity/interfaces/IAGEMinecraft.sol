@@ -29,9 +29,25 @@
 
 pragma solidity ^0.8.19;
 
-import "./IProxy.sol";
-import "./IAGE.sol";
-import "./IGameData.sol";
-import "./IModuleManager.sol";
+interface IAGEMinecraft {
 
-interface IProxyAGE is IProxy, IAGE, IGameData, IModuleManager {}
+    function setServerDetails(string calldata ipString, uint16 newServerPort, string calldata newServerName, string calldata newServerAddress) external;
+
+    function setServerIpAddress(string calldata ipString) external;
+
+    function getServerIpAddress() external view returns (string memory);
+
+    function setServerPort(uint16 newPort) external;
+
+    function getServerPort() external view returns (uint16);
+
+    function setServerName(string calldata newName) external;
+
+    function getServerName() external view returns (string memory);
+
+    function setServerDomainAddress(string calldata newAddress) external;
+    
+    function getServerDomainAddress() external view returns (string memory);
+
+}
+

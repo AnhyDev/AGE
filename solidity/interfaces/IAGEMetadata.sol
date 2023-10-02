@@ -43,17 +43,11 @@ interface IAGEMetadata is IModuleType {
     function getAllGames() external view returns (IAGEMetadata.GameInfo[] memory);
     
     function checkGameIdNotEmpty(uint256 gameId) external view returns (uint256);
+
+    function getModuleTypeString(ModuleType moduleType) external view returns (string memory);
     
     struct GameInfo {
         uint256 gameId;
         string gameName;
     }
-
-    /**
-     * @dev Returns the string representation of a ModuleType enum value from IModuleType interface.
-     * @param moduleType The ModuleType enum value to be converted to string.
-     * @return String representation of the given ModuleType value.
-     */
-    function getModuleTypeString(ModuleType moduleType) external view returns (string memory);
-    
 }

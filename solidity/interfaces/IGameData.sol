@@ -26,12 +26,21 @@
  * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
  * with the software or the use or other dealings in the software.
  */
-
 pragma solidity ^0.8.19;
 
-import "./IProxy.sol";
-import "./IAGE.sol";
-import "./IGameData.sol";
-import "./IModuleManager.sol";
+import "./IModuleType.sol";
 
-interface IProxyAGE is IProxy, IAGE, IGameData, IModuleManager {}
+interface IGameData {
+    
+    // Utility function to get string representation of a ModuleType enum.
+    function getModuleTypeString(IModuleType.ModuleType moduleType) external view returns (string memory);
+
+    // This function sets the address of the contract that will store game server metadata
+    function setGameServerMetadata(address contracrAddress) external;
+
+    // This function gets the address of the game server metadata contract
+    function getGameServerMetadata() external view returns (address);
+
+    // This function gets the game server data based on a given ID
+    function getServerData(uint256 gameId) external view returns (string memory, string memory);
+}

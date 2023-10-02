@@ -31,7 +31,6 @@ pragma solidity ^0.8.19;
 import "../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../interfaces/IERC1820Registry.sol";
 import "../interfaces/IERC20Receiver.sol";
-import "./BaseUtility.sol";
 import "./BaseAnh.sol";
 
 /**
@@ -48,7 +47,7 @@ import "./BaseAnh.sol";
  *      Functions include:
  *      - onERC20Received: Overridden from IERC20Receiver, handles incoming ERC20 token transfers.
  */
-abstract contract ERC20Receiver is IERC20Receiver, IERC165, BaseUtility, BaseAnh {
+abstract contract ERC20Receiver is IERC20Receiver, IERC165, BaseAnh {
 
     // Event emitted when Anhydrite tokens are deposited.
     event DepositAnhydrite(address indexed from, address indexed who, uint256 amount);
@@ -93,7 +92,7 @@ abstract contract ERC20Receiver is IERC20Receiver, IERC165, BaseUtility, BaseAnh
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IERC20Receiver).interfaceId;
     }
 }

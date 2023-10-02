@@ -139,10 +139,16 @@ contract AGE is
         _setTokenURI(tokenId, tokenURI(0));
     }
 
+    /**
+     * @dev This function `_update` is used to override the internal `_update` function of the parent contracts `ERC721` and `ERC721Enumerable`.
+     */
     function _update(address to, uint256 tokenId, address auth) internal virtual override(ERC721, ERC721Enumerable) returns (address) {
         return super._update(to, tokenId, auth);
     }
     
+    /**
+     * @dev The function `_increaseBalance` is utilized to augment the balance of the specified account `account` by a certain `value`.
+     */
     function _increaseBalance(address account, uint128 value) internal virtual override(ERC721, ERC721Enumerable) {
         super._increaseBalance(account, value);
     }

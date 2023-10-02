@@ -26,12 +26,31 @@
  * in an action of contract, tort, or otherwise, arising from, out of, or in connection 
  * with the software or the use or other dealings in the software.
  */
-
 pragma solidity ^0.8.19;
 
-import "./IProxy.sol";
-import "./IAGE.sol";
-import "./IGameData.sol";
-import "./IModuleManager.sol";
+import "./IModuleType.sol";
 
-interface IProxyAGE is IProxy, IAGE, IGameData, IModuleManager {}
+interface IModuleManager {
+    
+    struct Module {
+        string moduleName;
+        IModuleType.ModuleType moduleType;
+        string moduleTypeString;
+        address moduleFactory;
+    }
+
+    function addOrUpdateModule(string memory moduleName, uint256 uintType, address contractAddress, bool update) external;
+    
+    function addOrUpdateGameServerModule(uint256 gameId, address contractAddress, bool update) external;
+    
+    function removeModule(string memory moduleName, uint256 uintType) external;
+    
+    function getAllModules() external view returns (Module[] memory);
+    
+    function getModulesByType(IModuleType.ModuleType moduleType) external view returns (Module[] memory);
+    
+    function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress) external returns (address);
+    
+    function deployServerContract(uint256 gameId, string memory info) external returns (address);
+    
+}
