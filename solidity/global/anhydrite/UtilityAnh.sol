@@ -55,7 +55,7 @@ abstract contract UtilityAnh is BaseUtility {
 
     // Returns the Ethereum address of the proxy contract.
     function getProxyAddress() public view returns (address) {
-        return getProxyAddress();
+        return _getProxyAddress();
     }
 
     /*
