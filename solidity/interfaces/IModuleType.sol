@@ -59,4 +59,10 @@ interface IModuleType {
     // Charity Module
         Charity
     }
+
+    struct ModuleInfo {
+        ModuleType moduleType;
+        string moduleName;
+    }
+    
 }

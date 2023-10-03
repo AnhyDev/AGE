@@ -35,11 +35,6 @@ import "../../interfaces/IModuleType.sol";
 
 abstract contract ModuleTypeData is IModuleType {
 
-    struct ModuleInfo {
-        ModuleType moduleType;
-        string moduleName;
-    }
-
     // A function that returns an array of structures
     function getAllModuleInfos() external pure returns (ModuleInfo[] memory) {
         uint8 moduleTypeCount = uint8(ModuleType.Charity) + 1;
