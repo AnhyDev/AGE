@@ -200,7 +200,7 @@ contract AGEMonitoring is IAGEMonitoring,
      * commission fees to be burned during a transaction.
      */
     function getBurnFeeFor1Vote() external view override returns (uint256) {
-        return _calculateAmountToBurn(1, 100);
+        return _calculateAmountToBurn(1, PERCENTAGE_1_VOTES);
     }
     function getBurnFeeFor10Votes() external view override returns (uint256) {
         return _calculateAmountToBurn(10, PERCENTAGE_10_VOTES);

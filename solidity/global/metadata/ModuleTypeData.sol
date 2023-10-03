@@ -39,32 +39,36 @@ abstract contract ModuleTypeData is IModuleType {
     function getModuleTypeString(ModuleType moduleType) external pure returns (string memory) {
         if (moduleType == ModuleType.Server) {
             return "Server";
+        } else if (moduleType == ModuleType.Cashback) {
+            return "Cashback";
         } else if (moduleType == ModuleType.Token) {
             return "Token";
         } else if (moduleType == ModuleType.NFT) {
             return "NFT";
         } else if (moduleType == ModuleType.Shop) {
             return "Shop";
-        } else if (moduleType == ModuleType.Voting) {
-            return "Voting";
-        } else if (moduleType == ModuleType.Lottery) {
-            return "Lottery";
-        } else if (moduleType == ModuleType.Raffle) {
-            return "Raffle";
-        } else if (moduleType == ModuleType.Game) {
-            return "Game";
+        } else if (moduleType == ModuleType.Exchange) {
+            return "Exchange";
+        } else if (moduleType == ModuleType.Auction) {
+            return "Auction";
         } else if (moduleType == ModuleType.Advertisement) {
             return "Advertisement";
+        } else if (moduleType == ModuleType.SocialFunctions) {
+            return "SocialFunctions";
         } else if (moduleType == ModuleType.AffiliateProgram) {
             return "AffiliateProgram";
         } else if (moduleType == ModuleType.Event) {
             return "Event";
+        } else if (moduleType == ModuleType.Game) {
+            return "Game";
+        } else if (moduleType == ModuleType.Lottery) {
+            return "Lottery";
+        } else if (moduleType == ModuleType.Raffle) {
+            return "Raffle";
+        } else if (moduleType == ModuleType.Voting) {
+            return "Voting";
         } else if (moduleType == ModuleType.RatingSystem) {
             return "RatingSystem";
-        } else if (moduleType == ModuleType.SocialFunctions) {
-            return "SocialFunctions";
-        } else if (moduleType == ModuleType.Auction) {
-            return "Auction";
         } else if (moduleType == ModuleType.Charity) {
             return "Charity";
         } else {
