@@ -35,8 +35,33 @@ import "../../interfaces/IModuleType.sol";
 
 abstract contract ModuleTypeData is IModuleType {
 
+    struct ModuleInfo {
+        ModuleType moduleType;
+        string moduleName;
+    }
+
+    // A function that returns an array of structures
+    function getAllModuleInfos() external pure returns (ModuleInfo[] memory) {
+        uint8 moduleTypeCount = uint8(ModuleType.Charity) + 1;
+        ModuleInfo[] memory moduleInfos = new ModuleInfo[](moduleTypeCount);
+
+        for (uint8 i = 0; i < moduleTypeCount; i++) {
+            ModuleType currentType = ModuleType(i);
+            moduleInfos[i] = ModuleInfo({
+                moduleType: currentType,
+                moduleName: _getModuleTypeString(currentType)
+            });
+        }
+
+        return moduleInfos;
+    }
+
     // Internal utility function to get string representation of a ModuleType enum.
     function getModuleTypeString(ModuleType moduleType) external pure returns (string memory) {
+        return _getModuleTypeString(moduleType);
+    }
+    
+    function _getModuleTypeString(ModuleType moduleType) internal pure returns (string memory) {
         if (moduleType == ModuleType.Server) {
             return "Server";
         } else if (moduleType == ModuleType.Cashback) {
