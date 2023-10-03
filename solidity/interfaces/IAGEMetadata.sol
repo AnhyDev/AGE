@@ -48,6 +48,8 @@ interface IAGEMetadata is IModuleType {
     function checkGameIdNotEmpty(uint256 gameId) external view returns (uint256);
 
     function getModuleTypeString(ModuleType moduleType) external view returns (string memory);
+
+    function getAllModuleInfos() external view returns (ModuleInfo[] memory);
     
     struct GameInfo {
         uint256 gameId;

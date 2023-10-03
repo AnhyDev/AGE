@@ -39,7 +39,7 @@ abstract contract GameData is Ownable {
     // This contract is responsible for storing metadata related to various gaming servers.
 	IAGEMetadata internal _gameData;
 
-    // Utility function to get string representation of a ModuleType enum.
+    // Utility function to get string representation of a ModuleType enum
     function getModuleTypeString(IAGEMetadata.ModuleType moduleType) external view returns (string memory) {
         return _getModuleTypeString(moduleType);
     }
