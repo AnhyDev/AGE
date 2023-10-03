@@ -63,9 +63,8 @@ abstract contract ModuleManager is MonitoringManager, GameData {
 
     // Adds a new Game Server module or pdates an existing Game Server module.
     function addOrUpdateGameServerModule(uint256 gameId, address contractAddress, bool update) external onlyOwner {
-        (string memory moduleName,) = _getServerData(gameId);
-        uint256 uintType = uint256(IModuleType.ModuleType.Server);
-        _addModule(moduleName, uintType, contractAddress, update);
+        (string memory moduleName, /*string memory symbol*/) = _getServerData(gameId);
+        _addModule(moduleName, uint256(IModuleType.ModuleType.Server), contractAddress, update);
     }
 
     // Internal function to add or update a module.
@@ -168,9 +167,9 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     // Deploys a new game server contract and adds it to monitoring.
     function deployServerContract(uint256 gameId, string memory info) external returns (address) {
         uint256 uintType = uint256(IModuleType.ModuleType.Server);
-        (string memory contractName,) = _getServerData(gameId);
+        (string memory contractName, /*string memory symbol*/) = _getServerData(gameId);
 
-        address minecraftServerAddress = _deploy(gameId, contractName, uintType, address(0), info);
+        address minecraftServerAddress = _deploy(gameId, contractName, uintType, msg.sender, info);
 
         _mintTokenForServer(minecraftServerAddress);
         _addServerToMonitoring(gameId, minecraftServerAddress);

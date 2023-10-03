@@ -55,9 +55,10 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
     /**
      * @dev Modifier to restrict the deployment of modules.
      */
-    modifier onlyAllowed() {
+    modifier onlyAllowed(address ownerAddress) {
         require(!_proxyContract().isStopped(), "FactoryAGEMinecraft: Deploying is stopped");
-        require(isDeploy[msg.sender] == address(0), "FactoryAGEMinecraft: This address has already deployed this server module");
+        require(isDeploy[ownerAddress] == address(0), "FactoryAGEMinecraft: This address has already deployed this server module");
+        require(msg.sender == _proxyContract().implementation(), "FactoryAGEMinecraft: Only global contract allowed");
         _;
     }
 
@@ -72,15 +73,15 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
      * @return The address of the newly deployed AGEMinecraft module.
      */
     function deployModule(string memory name, string memory symbol,
-            address /*serverContractAddress*/, address /*ownerAddress*/, string memory info)
-                external onlyAllowed() returns (address) {
+            address /*serverContractAddress*/, address ownerAddress, string memory info)
+                external onlyAllowed(ownerAddress) returns (address) {
 
-        AGEMinecraft newModule = new AGEMinecraft(msg.sender, name, symbol, info);
+        AGEMinecraft newModule = new AGEMinecraft(ownerAddress, name, symbol, info);
         
-        isDeploy[msg.sender] = address(newModule);
+        isDeploy[ownerAddress] = address(newModule);
         deployedModules.push(address(newModule));
         
-        emit AGEMinecraftCreated(address(newModule), msg.sender);
+        emit AGEMinecraftCreated(address(newModule), ownerAddress);
         
         return address(newModule);
     }
