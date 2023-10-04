@@ -32,7 +32,7 @@
 pragma solidity ^0.8.19;
 
 import "../interfaces/IANH.sol";
-import "../interfaces/IProxyAGE.sol";
+import "../interfaces/IProxy.sol";
 import "../interfaces/IERC1820Registry.sol";
 
 abstract contract BaseUtility {
@@ -45,8 +45,8 @@ abstract contract BaseUtility {
     * @dev Creates and returns an instance of the proxy contract using the address obtained from _getProxyAddress function.
     * @return IProxy An instance of the proxy contract.
     */
-    function _proxyContract() internal view returns(IProxyAGE) {
-        return IProxyAGE(_getProxyAddress());
+    function _proxyContract() internal view returns(IProxy) {
+        return IProxy(_getProxyAddress());
     }
 
     /**

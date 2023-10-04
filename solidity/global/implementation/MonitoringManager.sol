@@ -172,11 +172,23 @@ abstract contract MonitoringManager is Ownable {
         return status == ServerStatus.Monitored;
     }
 
+    event ExceptionInfo(address indexed to, string exception);
+
     function _voteForServer(address serverAddress) private {
         require(_isServerMonitored(serverAddress), "Monitorings: This address is not monitored or blocked");
         address monitoringAddress = _getMonitoring().addr;
 
-        IAGEMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress);
+        try IAGEMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress) {
+	    } catch Error(string memory reason) {
+            emit ExceptionInfo(msg.sender, reason);
+	    } catch (bytes memory lowLevelData) {
+            string memory infoError = "Another error";
+            if (lowLevelData.length > 0) {
+                infoError = string(lowLevelData);
+            }
+            emit ExceptionInfo(msg.sender, infoError);
+        }
+            
     }
 
     function _getMonitoring() private view returns (Monitoring memory) {

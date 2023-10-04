@@ -35,10 +35,7 @@ import "../openzeppelin/contracts/interfaces/IERC20.sol";
 
 //IProxy interface defines the methods a Proxy contract should implement.
 interface IProxy {
-	
- // Returns the core ERC20 token of the project
- function getCoreToken() external view returns (IERC20);
-
+    
  // Returns the address of the current implementation (logic contract)
  function implementation() external view returns (address);
 

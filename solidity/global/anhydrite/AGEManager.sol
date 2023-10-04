@@ -27,30 +27,32 @@
  * with the software or the use or other dealings in the software.
  */
  
-// @filepath Repository Location: [solidity/common/BaseAnh.sol]
+// @filepath Repository Location: [solidity/global/common/ProxyManager.sol]
 
 pragma solidity ^0.8.19;
 
-import "./BaseUtility.sol";
-import "../interfaces/IANH.sol";
-import "../interfaces/IERC1820Registry.sol";
+import "../../interfaces/IProxy.sol";
 
-abstract contract BaseAnh is BaseUtility {
+abstract contract AGEManager {
 
-    // Address of the Main project token (ANH)
-    IANH public constant ANHYDRITE = IANH(0x3703f3D511793E050e388d73f7Db87E12840ccB0);
+    address internal contractAddressAGE;
 
-    /**
-    * @notice Returns the proxy contract address from the Anhydrite contract.
-    * @dev Retrieves and returns the address of the proxy contract by calling getProxyAddress function of the ANHYDRITE contract.
-    * @return address The address of the proxy contract.
-    */
-    function _getProxyAddress() internal view override returns (address) {
-        return ANHYDRITE.getProxyAddress();
+    address internal mainOwnership;
+
+    function _setAddressAge(address age) internal {
+        contractAddressAGE = age;
     }
 
-    // Checks whether the address is among the owners of the proxy contract
-    function _isProxyOwner(address senderAddress) internal view override virtual returns (bool) {
-        return _proxyContract().isProxyOwner(senderAddress);
+    function _getAddressAGE() internal view returns (address) {
+        return contractAddressAGE;
     }
+    function _mainOwnership() internal view returns(IProxy) {
+        return IProxy(_getMainOwnership());
+    }
+
+    function _getMainOwnership() internal view virtual returns (address) {
+        return mainOwnership;
+    }
+
+    function _isMainOwner(address senderAddress) internal view virtual returns (bool);
 }

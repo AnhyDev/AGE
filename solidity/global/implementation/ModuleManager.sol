@@ -46,7 +46,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     // Structure defining a Module with a name, type, type as a string, and the address of its factory contract.
     struct Module {
         string moduleName;
-        IAGEMetadata.ModuleType moduleType;
+        IModuleType.ModuleType moduleType;
         string moduleTypeString;
         address moduleFactory;
     }
@@ -72,7 +72,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
         bytes32 hash = _getModuleHash(moduleName, uintType);
         bool exist = _modules[hash].moduleFactory != address(0);
         bool isRevert = true;
-        IAGEMetadata.ModuleType moduleType = IModuleType.ModuleType(uintType);
+        IModuleType.ModuleType moduleType = IModuleType.ModuleType(uintType);
         Module memory module  = Module({
             moduleName: moduleName,
             moduleType: moduleType,
@@ -120,14 +120,14 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     }
 
     // Retrieves modules filtered by a specific type.
-    function getModulesByType(IAGEMetadata.ModuleType moduleType) external view returns (Module[] memory) {
+    function getModulesByType(IModuleType.ModuleType moduleType) external view returns (Module[] memory) {
         return _getFilteredModules(uint256(moduleType));
     }
 
     // Internal function to get modules filtered by type.
     function _getFilteredModules(uint256 filterType) private view returns (Module[] memory) {
         uint256 count = 0;
-        IAGEMetadata.ModuleType filteredType = IModuleType.ModuleType(filterType);
+        IModuleType.ModuleType filteredType = IModuleType.ModuleType(filterType);
 
         for (uint256 i = 0; i < _moduleList.length; i++) {
             bytes32 hash = _moduleList[i];

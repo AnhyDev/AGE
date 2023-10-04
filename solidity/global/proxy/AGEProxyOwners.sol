@@ -34,7 +34,7 @@ pragma solidity ^0.8.19;
 
 import "../../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../../openzeppelin/contracts/interfaces/IERC721.sol";
-import "./Proxy.sol";
+import "./Provider.sol";
 import "./VotingStopped.sol";
 import "./VotingNeededForOwnership.sol";
 import "./VotingNewImplementation.sol";
@@ -66,7 +66,7 @@ import "./ERC20Receiver.sol";
  *      - VoluntarilyExit: Emitted when an owner voluntarily exits.
  */
 contract AGEProxyOwners is
-    Proxy,
+    Provider,
     VotingStopped,
     VotingNeededForOwnership,
     VotingNewImplementation,
