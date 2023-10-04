@@ -65,9 +65,6 @@ abstract contract TokenManager is VoteUtility {
     function initiateTransfer(address recepient, uint256 amount) public onlyOwner {
         require(amount != 0, "TokenManager: Incorrect amount");
         require(_proposedTransferAmount == 0, "TokenManager: voting is already activated");
-        if (address(_proxyContract()) != address(0)) {
-            require(!_proxyContract().isBlacklisted(recepient), "TokenManager: this address is blacklisted");
-        }
 
         _proposedTransferRecepient = recepient;
         _proposedTransferAmount = amount;

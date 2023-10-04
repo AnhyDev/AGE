@@ -85,8 +85,8 @@ abstract contract FinanceManager is IERC721Receiver, Ownable {
      */
     function _recepient() private view returns (address) {
         address recepient = owner();
-        if (address(_proxyContract()) != address(0)) {
-            recepient = _proxyContract().implementation();
+        if (_getMain() != address(0)) {
+            recepient = _getAGE();
         }
         return recepient;
     }

@@ -34,7 +34,7 @@ pragma solidity ^0.8.19;
 import "../../common/ERC20ReceiverToken.sol";
 import "./FinanceManager.sol";
 import "./TokenManager.sol";
-import "./ProxyManager.sol";
+import "./MainManager.sol";
 import "../common/OwnableManager.sol";
 import "./WhiteListManager.sol";
 
@@ -51,7 +51,7 @@ import "./WhiteListManager.sol";
  *   - `_transferFor`: Checks and performs token transfers, and mints new tokens if necessary, but not exceeding max supply.
  *   - `_mint`: Enforces the max supply limit when minting tokens.
  */
-contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, ProxyManager, OwnableManager, WhiteListManager {
+contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainManager, OwnableManager, WhiteListManager {
 
     // Sets the maximum allowed supply of tokens is 360 million
     uint256 constant public MAX_SUPPLY = 360000000 * 10 ** 18;
@@ -62,12 +62,12 @@ contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, ProxyMan
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IANH"), address(this));
    }
 
-    // Sending tokens on request from the smart contract proxy to its address
+    // Sending tokens on request from the smart contract MainProvider to its address
     function transferForProxy(uint256 amount) public {
-        require(address(_proxyContract()) != address(0), "Anhydrite: The proxy contract has not yet been established");
-        address proxy = address(_proxyContract());
-        require(msg.sender == proxy, "Anhydrite: Only a proxy smart contract can activate this feature");
-        _transferFor(proxy, amount);
+        address main = _getMain();
+        require(main != address(0), "Anhydrite: The MainProvider contract has not yet been established");
+        require(msg.sender == main, "Anhydrite: Only a MainProvider smart contract can activate this feature");
+        _transferFor(main, amount);
     }
 
     // Implemented _transferFor function checks token presence, sends to recipient, and mints new tokens if necessary, but not exceeding max supply.

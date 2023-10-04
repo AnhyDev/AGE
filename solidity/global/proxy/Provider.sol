@@ -32,9 +32,10 @@
 pragma solidity ^0.8.19;
 
 import "./BaseProxy.sol";
+import "../../interfaces/IProvider.sol";
 
-// Proxy is an abstract contract that implements the IProxy interface and adds utility and ownership functionality.
-abstract contract Provider is IProxy, BaseProxy {
+// Proxy is an abstract contract that implements the IProvider interface and adds utility and ownership functionality.
+abstract contract Provider is IProvider, BaseProxy {
 
     // Function to forward Ether received to the implementation contract
     receive() external payable {

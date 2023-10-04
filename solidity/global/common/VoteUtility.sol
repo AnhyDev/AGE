@@ -78,8 +78,8 @@ abstract contract VoteUtility is Ownable {
 
     // Calls the 'increase' method on the proxy contract to handle voting participants
     function _increase(address[] memory owners) internal {
-        if (address(_proxyContract()) != address(0)) {
-            _proxyContract().increase(owners);
+        if (_getMain() != address(0)) {
+            _getMainProviderContract().increase(owners);
         }
     }
 
@@ -135,8 +135,8 @@ abstract contract VoteUtility is Ownable {
      */
     function _totalOwners() private view returns (uint256) {
         uint256 _tOwners = 1;
-        if (address(_proxyContract()) != address(0)) {
-            _tOwners = _proxyContract().getTotalOwners();
+        if (_getMain() != address(0)) {
+            _tOwners = _getMainProviderContract().getTotalOwners();
         }
         return _tOwners;
     }
@@ -166,7 +166,7 @@ abstract contract VoteUtility is Ownable {
      *   - vote: The voting result to close.
      */
     function _closeVote(VoteResult storage vote) internal canClose(vote.timestamp) {
-        if (address(_proxyContract()) != address(0)) {
+        if (_getMain() != address(0)) {
             address[] memory newArray = new address[](1);
             newArray[0] = msg.sender;
             _increase(newArray);

@@ -62,8 +62,8 @@ abstract contract OwnableManager is VoteUtility {
     function transferOwnership(address proposedOwner) public {
         _checkProxyOwner();
         require(_proposedOwner == address(0), "OwnableManager: voting is already activated");
-        require(!_proxyContract().isBlacklisted(proposedOwner),"OwnableManager: this address is blacklisted");
-        require(_isProxyOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
+        require(!_getMainProviderContract().isBlacklisted(proposedOwner),"OwnableManager: this address is blacklisted");
+        require(_isMainOwner(proposedOwner), "OwnableManager: caller is not the proxy owner");
 
         _proposedOwner = proposedOwner;
         _votesForNewOwner = VoteResult(

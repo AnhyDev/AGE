@@ -27,41 +27,38 @@
  * with the software or the use or other dealings in the software.
  */
  
-// @filepath Repository Location: [solidity/common/BaseUtility.sol]
+// @filepath Repository Location: [solidity/interfaces/IProxy.sol]
 
 pragma solidity ^0.8.19;
 
-import "../interfaces/IANH.sol";
-import "../interfaces/IFullAGE.sol";
-import "../interfaces/IProvider.sol";
-import "../interfaces/IERC1820Registry.sol";
+import "../openzeppelin/contracts/interfaces/IERC20.sol";
 
-abstract contract BaseUtility {
+//IProxy interface defines the methods a Proxy contract should implement.
+interface IProvider {
 
-    // Address of the ERC-1820 Registry
-    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+ // Returns the number of tokens needed to become an owner
+ function getTokensNeededForOwnership() external view returns (uint256);
 
+ // Returns the total number of owners
+ function getTotalOwners() external view returns (uint256);
 
-    function _setAddressAge(address age) internal virtual;
+ // Checks if an address is a proxy owner (has voting rights)
+ function isProxyOwner(address tokenAddress) external view returns (bool);
 
-    function _getAGE() internal view virtual returns (address);
+ // Checks if an address is an owner
+ function isOwner(address account) external view returns (bool);
 
-    function _setAddressMain(address main) internal virtual;
+ // Returns the balance of an owner
+ function getBalanceOwner(address owner) external view returns (uint256);
 
-    function _getMain() internal view virtual returns(address);
+ // Checks if an address is blacklisted
+ function isBlacklisted(address account) external view returns (bool);
 
-    // Checks whether the address is among the owners of the proxy contract
-    function _isMainOwner(address senderAddress) internal view virtual returns (bool);
-
-    function _getFullAGEContract() internal view returns(IFullAGE) {
-        return IFullAGE(_getAGE());
-    }
-
-    function _getMainProviderContract() internal view returns(IProvider) {
-        return IProvider(_getMain());
-    }
-
-    function _getMainAndAGE() internal view virtual returns (address, address) {
-        return (_getMain(), _getAGE());
-    }
+ // Checks if the contract is stopped
+ function isStopped() external view returns (bool);
+ 
+ // Increases interest for voting participants
+ function increase(address[] memory addresses) external;
+ 
 }
+

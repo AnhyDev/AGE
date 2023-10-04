@@ -27,41 +27,12 @@
  * with the software or the use or other dealings in the software.
  */
  
-// @filepath Repository Location: [solidity/common/BaseUtility.sol]
+// @filepath Repository Location: [solidity/interfaces/IProxyAGE.sol]
 
 pragma solidity ^0.8.19;
 
-import "../interfaces/IANH.sol";
-import "../interfaces/IFullAGE.sol";
-import "../interfaces/IProvider.sol";
-import "../interfaces/IERC1820Registry.sol";
+import "./IAGE.sol";
+import "./IGameData.sol";
+import "./IModuleManager.sol";
 
-abstract contract BaseUtility {
-
-    // Address of the ERC-1820 Registry
-    IERC1820Registry constant internal erc1820Registry = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-
-
-    function _setAddressAge(address age) internal virtual;
-
-    function _getAGE() internal view virtual returns (address);
-
-    function _setAddressMain(address main) internal virtual;
-
-    function _getMain() internal view virtual returns(address);
-
-    // Checks whether the address is among the owners of the proxy contract
-    function _isMainOwner(address senderAddress) internal view virtual returns (bool);
-
-    function _getFullAGEContract() internal view returns(IFullAGE) {
-        return IFullAGE(_getAGE());
-    }
-
-    function _getMainProviderContract() internal view returns(IProvider) {
-        return IProvider(_getMain());
-    }
-
-    function _getMainAndAGE() internal view virtual returns (address, address) {
-        return (_getMain(), _getAGE());
-    }
-}
+interface IFullAGE is IAGE, IGameData, IModuleManager {}

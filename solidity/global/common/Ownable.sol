@@ -76,9 +76,9 @@ abstract contract Ownable is BaseUtility {
      */
     modifier onlyOwner() {
         require(_owner == msg.sender, "Ownable: caller is not the owner");
-        IProxy proxy = _proxyContract();
-        if (address(proxy) != address(0) && proxy.getTotalOwners() > 0) {
-            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxy owner");
+        IProvider provider = _getMainProviderContract();
+        if (address(provider) != address(0) && provider.getTotalOwners() > 0) {
+            require(_isMainOwner(msg.sender), "Ownable: caller is not the Main Owner");
         }
         _;
     }
@@ -87,8 +87,8 @@ abstract contract Ownable is BaseUtility {
      * @dev Throws if the sender is not the owner.
      */
     function _checkProxyOwner() internal view virtual {
-        if (address(_proxyContract()) != address(0) && _proxyContract().getTotalOwners() > 0) {
-            require(_isProxyOwner(msg.sender), "BaseUtility: caller is not the proxyOwner");
+        if (address(_getMain()) != address(0) && _getMainProviderContract().getTotalOwners() > 0) {
+            require(_isMainOwner(msg.sender), "Ownable: caller is not the Main Owner");
         } else {
             _checkOwner();
         }

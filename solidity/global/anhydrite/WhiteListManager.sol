@@ -78,6 +78,9 @@ abstract contract WhiteListManager is VoteUtility {
     // Function to initiate a new voting round for whitelist changes
     function initiateVoteWhiteList(address proposedContract) public onlyOwner {
         require(_proposedContract == address(0), "WhiteListManager: voting is already activated");
+        if (_getMain() != address(0)) {
+            require(!_getMainProviderContract().isBlacklisted(proposedContract), "TokenManager: this address is blacklisted");
+        }
         
         if (!_whiteList[proposedContract]) {
             // Checks if the proposed contract adheres to the IERC20Receiver interface
