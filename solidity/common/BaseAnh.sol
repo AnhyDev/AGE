@@ -40,17 +40,23 @@ abstract contract BaseAnh is BaseUtility {
     // Address of the Main project token (ANH)
     IANH public constant ANHYDRITE = IANH(0x3703f3D511793E050e388d73f7Db87E12840ccB0);
 
-    /**
-    * @notice Returns the proxy contract address from the Anhydrite contract.
-    * @dev Retrieves and returns the address of the proxy contract by calling getProxyAddress function of the ANHYDRITE contract.
-    * @return address The address of the proxy contract.
-    */
-    function _getProxyAddress() internal view override returns (address) {
-        return ANHYDRITE.getProxyAddress();
+    function _getAGE() internal view override returns (address) {
+        return ANHYDRITE.getAGEAddress();
     }
 
-    // Checks whether the address is among the owners of the proxy contract
-    function _isProxyOwner(address senderAddress) internal view override virtual returns (bool) {
-        return _proxyContract().isProxyOwner(senderAddress);
+    function _getMain() internal view override returns(address) {
+        return ANHYDRITE.getAGEAddress();
+    }
+
+    function _isMainOwner(address senderAddress) internal view override returns (bool) {
+        return _getMainProviderContract().isProxyOwner(senderAddress);
+    }
+
+    function _setAddressMain(address /*main*/) internal pure override {
+        revert("BaseAnh: A plug for implementing the interface standard");
+    }
+
+    function _setAddressAge(address /*age*/) internal pure override {
+        revert("BaseAnh: A plug for implementing the interface standard");
     }
 }

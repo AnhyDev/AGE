@@ -36,6 +36,7 @@ import "../../interfaces/IAGEMonitoring.sol";
 import "../../common/ERC20Receiver.sol";
 import "../common/FinanceManager.sol";
 import "../common/OwnableManager.sol";
+import "../../common/BaseAnh.sol";
 import "./GameData.sol";
 import "./ServerBlockingManager.sol";
 
@@ -43,14 +44,15 @@ import "./ServerBlockingManager.sol";
 /**
  * @title ServerDelegator
  * @author Your Name or Organization
- * @notice Контракт ServerDelegator розроблений для делегування серверів та обчислення плати за використання ресурсів.
- * Контракт надає можливість голосування для вибору сервера та забезпечує транспарентність та правильність обчислення плати.
+ * @notice The ServerDelegator contract is designed to delegate servers and calculate resource usage fees.
+ * The contract provides the possibility of voting for the selection of the server and ensures transparency and correct calculation of the fee.
  */
 contract AGEMonitoring is IAGEMonitoring,
     OwnableManager,
     ServerBlockingManager,
     FinanceManager,
     GameData,
+    BaseAnh,
     ERC20Receiver {
 
     // Constant for pricing model.
@@ -109,7 +111,7 @@ contract AGEMonitoring is IAGEMonitoring,
     // This modifier ensures that the function can only be executed by the global smart contract.
     // This is verified by comparing the caller address to the implementation address of the proxy contract.
     modifier onlyGlobal() {
-        require(_proxyContract().implementation() == msg.sender,
+        require(_getAGE() == msg.sender,
             "AGEMonitoring: This function is only available from a global smart contract."
         );
         _;
@@ -231,7 +233,7 @@ contract AGEMonitoring is IAGEMonitoring,
      * @return address: The address of the voter.
      */
     function _getVoterAddress(address voterAddress) internal view returns (address) {
-        if (_proxyContract().implementation() != msg.sender) {
+        if (_getAGE() != msg.sender) {
             voterAddress = msg.sender;
         }
         return voterAddress;
@@ -277,10 +279,11 @@ contract AGEMonitoring is IAGEMonitoring,
      * @param percentage: The specified percentage.
      */
     function _calculateAmountToBurn(uint256 numberOfVotes, uint256 percentage) internal view returns (uint256) {
-        uint256 burned = _proxyContract().getPrice(_priceVotingBytes) != 0 ? 
-            _proxyContract().getPrice(_priceVotingBytes) : _basePrice;
+        IFullAGE fullAGEContract =  _getFullAGEContract();
+        uint256 burned = fullAGEContract.getPrice(_priceVotingBytes) != 0 ? 
+            fullAGEContract.getPrice(_priceVotingBytes) : _basePrice;
             
-        if (numberOfVotes == 1 && _proxyContract().getPrice(_priceVotingBytes) == 0) {
+        if (numberOfVotes == 1 && fullAGEContract.getPrice(_priceVotingBytes) == 0) {
             return 0;
         } else {
             return (burned * numberOfVotes * percentage) / 100;

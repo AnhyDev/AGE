@@ -35,14 +35,14 @@ import "../openzeppelin/contracts/interfaces/IERC20.sol";
 
 //Interface for interacting with the Anhydrite contract.
 interface IANH is IERC20 {
-    // Returns the interface address of the proxy contract
-    function getProxyAddress() external view returns (address);
-    // Is the address whitelisted
-    function isinWhitelist(address contractAddress) external view returns (bool);
-    // Gets the max supply of the token.
+
+    function getMainOwnership() external view returns (address);
+
+    function getAGEAddress() external view returns (address);
+
+    function getMainAndAGE() external view returns (address, address);
+
     function getMaxSupply() external pure returns (uint256);
-    // Transfers tokens for the proxy.
-    function transferForProxy(uint256 amount) external;
 
     
     // ERC20Burnable function burn.

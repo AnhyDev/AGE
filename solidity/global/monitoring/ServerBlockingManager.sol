@@ -56,7 +56,6 @@ abstract contract ServerBlockingManager is VoteUtility {
         require(_isServer(proposedBlocking), "Server address not found");
         require(_isBlocked(proposedBlocking), "Server is already blocked");
         require(proposedBlocking == address(0), "ServerBlockingManager: voting is already activated");
-        require(!_proxyContract().isBlacklisted(proposedBlocking),"ServerBlockingManager: this address is blacklisted");
 
         _proposedBlocking = proposedBlocking;
         _votesForServerBlocking = VoteResult(

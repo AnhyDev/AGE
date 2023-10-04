@@ -33,8 +33,6 @@ pragma solidity ^0.8.19;
 
 
 import "../../interfaces/IAGEMetadata.sol";
-import "../../interfaces/IAGEMetadata.sol";
-import "../../common/BaseAnh.sol";
 import "../common/Ownable.sol";
 
 /**
@@ -56,7 +54,7 @@ abstract contract GameData is Ownable {
      * @return An instance of IGameData interface.
      */
     function _getGameServerMetadata() internal view returns (IAGEMetadata) {
-        return IAGEMetadata(_proxyContract().getGameServerMetadata());
+        return IAGEMetadata(_getFullAGEContract().getGameServerMetadata());
     }
 
     /**
