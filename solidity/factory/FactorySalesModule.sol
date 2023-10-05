@@ -63,8 +63,9 @@ contract FactorySalesModule is IFactory, BaseAnh {
      * @dev Modifier to restrict the deployment of modules.
      */
     modifier onlyAllowed(address serverContractAddress) {
-        require(!_proxyContract().isStopped(), "FactorySalesModule: Deploying is stopped");
-        require(msg.sender == _proxyContract().implementation(), "FactorySalesModule: Caller is not the implementation");
+        (address main, address age) = _getMainAndAGE();
+        require(!IProvider(main).isStopped(), "FactorySalesModule: Deploying is stopped");
+        require(msg.sender == age, "FactorySalesModule: Caller is not the implementation");
         require(isDeploy[serverContractAddress] == address(0), "FactorySalesModule: This server has already deployed this module");
         _;
     }
@@ -142,7 +143,7 @@ contract FactorySalesModule is IFactory, BaseAnh {
     }
 
     receive() external payable {
-        payable(_proxyContract().implementation()).transfer(msg.value);
+        payable(_getAGE()).transfer(msg.value);
     }
 }
 

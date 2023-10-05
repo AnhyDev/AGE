@@ -63,8 +63,9 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
      * @dev Modifier to restrict the deployment of modules.
      */
     modifier onlyAllowed(address serverContractAddress) {
-        require(!_proxyContract().isStopped(), "FactoryTokenCashback: Deploying is stopped");
-        require(msg.sender == _proxyContract().implementation(), "FactoryTokenCashback: Caller is not the implementation");
+        (address main, address age) = _getMainAndAGE();
+        require(!IProvider(main).isStopped(), "FactoryTokenCashback: Deploying is stopped");
+        require(msg.sender == age, "FactoryTokenCashback: Caller is not the implementation");
         require(isDeploy[serverContractAddress] == address(0), "FactoryTokenCashback: This server has already deployed this module");
         _;
     }
@@ -139,7 +140,7 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
     }
 
     receive() external payable {
-        payable(_proxyContract().implementation()).transfer(msg.value);
+        payable(_getAGE()).transfer(msg.value);
     }
 }
 

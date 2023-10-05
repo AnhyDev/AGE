@@ -55,12 +55,12 @@ abstract contract Modules is Ownable, BaseUtility {
         IModuleType.ModuleType moduleType = IModuleType.ModuleType(moduleId);
         bytes32 hash = _getModuleHash(name, moduleType);
         require(!_isModuleInstalled(hash), "Modules: Module already installed");
-        address contractAddress = _proxyContract().deployModuleOnServer(name, moduleId, msg.sender);
+        address contractAddress = _getFullAGEContract().deployModuleOnServer(name, moduleId, msg.sender);
 
         Module memory module = Module({
             moduleName: name,
             moduleType: moduleType,
-            moduleTypeString: _proxyContract().getModuleTypeString(moduleType),
+            moduleTypeString: _getFullAGEContract().getModuleTypeString(moduleType),
             moduleDeployedAddress: contractAddress
         });
 

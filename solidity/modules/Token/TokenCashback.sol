@@ -123,7 +123,7 @@ contract TokenCashback is IAGEModule, BaseAnh, FinanceManager, ModuleCashbackTok
      * @return bool True if the address is in the whitelist, false otherwise.
      */
     function _checkWhitelist(address checked) internal view override virtual returns (bool) {
-        return ANHYDRITE.isinWhitelist(checked);
+        return ANHYDRITE.checkWhitelist(checked);
     }
 
     /**

@@ -56,9 +56,10 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
      * @dev Modifier to restrict the deployment of modules.
      */
     modifier onlyAllowed(address ownerAddress) {
-        require(!_proxyContract().isStopped(), "FactoryAGEMinecraft: Deploying is stopped");
+        (address main, address age) = _getMainAndAGE();
+        require(!IProvider(main).isStopped(), "FactoryAGEMinecraft: Deploying is stopped");
         require(isDeploy[ownerAddress] == address(0), "FactoryAGEMinecraft: This address has already deployed this server module");
-        require(msg.sender == _proxyContract().implementation(), "FactoryAGEMinecraft: Only global contract allowed");
+        require(msg.sender == age, "FactoryAGEMinecraft: Only global contract allowed");
         _;
     }
 
@@ -111,7 +112,7 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
     function getDeployedModules(uint256 startIndex, uint256 endIndex) public view returns (address[] memory) {
         require(startIndex < deployedModules.length, "FactoryAGEMinecraft: Start index out of bounds");
     
-        if(endIndex >= deployedModules.length) {
+        if(endIndex >= deployedModules.length || endIndex < startIndex) {
             endIndex = deployedModules.length - 1;
         }
     
@@ -130,7 +131,7 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
      * @dev Transfers received Ether to the implementation of the proxied contract.
      */
     receive() external payable {
-        payable(_proxyContract().implementation()).transfer(msg.value);
+        payable(_getAGE()).transfer(msg.value);
     }
 
 
