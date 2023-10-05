@@ -36,7 +36,6 @@ import "./FinanceManager.sol";
 import "./TokenManager.sol";
 import "./MainManager.sol";
 import "../common/OwnableManager.sol";
-import "./WhiteListManager.sol";
 
 
 /*
@@ -51,7 +50,7 @@ import "./WhiteListManager.sol";
  *   - `_transferFor`: Checks and performs token transfers, and mints new tokens if necessary, but not exceeding max supply.
  *   - `_mint`: Enforces the max supply limit when minting tokens.
  */
-contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainManager, OwnableManager, WhiteListManager {
+contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainManager, OwnableManager{
 
     // Sets the maximum allowed supply of tokens is 360 million
     uint256 constant public MAX_SUPPLY = 360000000 * 10 ** 18;
@@ -82,14 +81,6 @@ contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainMana
     }
 
     /*
-     * Public function to check if an address is on the whitelist.
-     * It returns a boolean value indicating the whitelist status of the given address `checked`.
-     */
-    function checkWhitelist(address checked) external view returns (bool) {
-        return _whiteList[checked];
-    }
-
-    /*
      * Internal function to check if an address is on the whitelist.
      * This function overrides a function defined in a parent contract (as indicated by the `override` keyword).
      * It returns a boolean value indicating the whitelist status of the given address `checked`.
@@ -105,18 +96,6 @@ contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainMana
     function _mint(address account, uint256 amount) internal override {
         require(totalSupply() + amount <= MAX_SUPPLY, "Anhydrite: MAX_SUPPLY limit reached");
         super._mint(account, amount);
-    }
-
-    /*
-     * Internal function that determines whether the given `contractAddress` should return the standard
-     * `IERC20Received` response or follow the ERC1820 registry behavior.
-     * This function overrides functions from both the `WhiteListManager` and `ERC20Receiver` parent contracts
-     * as indicated by the `override(WhiteListManager, ERC20Receiver)` keyword.
-     * It returns a boolean value that dictates the behavior for handling incoming ERC20 tokens.
-     */
-    function _or1820RegistryReturnIERC20Received(address contractAddress) internal override(WhiteListManager, ERC20ReceiverToken) 
-      view returns (bool) {
-        return ERC20ReceiverToken._or1820RegistryReturnIERC20Received(contractAddress);
     }
     
     /**

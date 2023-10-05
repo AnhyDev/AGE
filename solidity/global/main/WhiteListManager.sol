@@ -31,6 +31,7 @@
 
 pragma solidity ^0.8.19;
 
+import "../../common/BaseAnh.sol";
 import "../common/VoteUtility.sol";
 import "../../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../../interfaces/IERC20Receiver.sol";
@@ -50,10 +51,7 @@ import "../../interfaces/IERC20Receiver.sol";
  * 9. Implements an interface check to ensure that the proposed smart contract adheres to the IERC20Receiver interface, but only for addition to the whitelist.
  * 10. Internal helper functions to streamline and modularize code for better maintainability and upgradeability.
  */
-abstract contract WhiteListManager is VoteUtility {
-
-    // Stores the whitelist status of each address
-    mapping(address => bool) internal _whiteList;
+abstract contract WhiteListManager is VoteUtility, BaseAnh {
 
     // Proposed new contract address for whitelist operations (either addition or removal)
     address private _proposedContract;
@@ -82,7 +80,7 @@ abstract contract WhiteListManager is VoteUtility {
             require(!_getMainProviderContract().isBlacklisted(proposedContract), "TokenManager: this address is blacklisted");
         }
         
-        if (!_whiteList[proposedContract]) {
+        if (!ANHYDRITE.checkWhitelist(proposedContract)) {
             // Checks if the proposed contract adheres to the IERC20Receiver interface
             require(proposedContract.code.length > 0 &&
                 (_or1820RegistryReturnIERC20Received(proposedContract) ||
@@ -98,8 +96,18 @@ abstract contract WhiteListManager is VoteUtility {
         _voteForContract(true);
     }
 
-    // Helper function to check if a contract implements IERC20Received
-    function _or1820RegistryReturnIERC20Received(address contractAddress) internal view virtual returns (bool);
+    /*
+     * Internal View Function: _or1820RegistryReturnIERC20Received
+     * - Purpose: Checks if the contract at `contractAddress` implements the IERC20Receiver interface according to the ERC1820 registry.
+     * - Arguments:
+     *   - contractAddress: The address of the contract to check.
+     * 
+     * - Returns: 
+     *   - A boolean indicating whether the contract implements IERC20Receiver according to the ERC1820 registry.
+     */
+    function _or1820RegistryReturnIERC20Received(address contractAddress) internal view virtual returns (bool) {
+        return erc1820Registry.getInterfaceImplementer(contractAddress, keccak256("IERC20Receiver")) == contractAddress;
+    }
 
     // Public function to allow owners to cast their votes
     function voteForWhiteList(bool vote) external onlyOwner {
@@ -118,7 +126,7 @@ abstract contract WhiteListManager is VoteUtility {
 
         // Evaluate if the voting has met either pass or fail conditions
         if (result == VoteResultType.Approved) {
-            _whiteList[_proposedContract] = !_whiteList[_proposedContract];
+            ANHYDRITE.changeWhitelist(_proposedContract);
             _completionVotingWhiteList(vote, votestrue, votesfalse);
         } else if (result == VoteResultType.Rejected) {
             _completionVotingWhiteList(vote, votestrue, votesfalse);
@@ -158,11 +166,11 @@ abstract contract WhiteListManager is VoteUtility {
     // Function to get details of the active vote (if any)
     function getActiveForVoteWhiteList() external view returns (address, bool, string memory) {
         require(_proposedContract != address(0), "WhiteListManager: There is no active voting");
-        return (_proposedContract, !_whiteList[_proposedContract], _addOrDelete == 1 ? "Add" : "Delete");
+        return (_proposedContract, !ANHYDRITE.checkWhitelist(_proposedContract), _addOrDelete == 1 ? "Add" : "Delete");
     }
 
     // Function to check if a given address is whitelisted
     function isinWhitelist(address contractAddress) external view returns (bool) {
-        return _whiteList[contractAddress];
+        return ANHYDRITE.checkWhitelist(contractAddress);
     }
 }

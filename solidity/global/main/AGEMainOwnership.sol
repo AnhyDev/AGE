@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/AGEProxyOwners.sol]
+// @filepath Repository Location: [solidity/global/proxy/AGEMainOwnership.sol]
 
 pragma solidity ^0.8.19;
 
@@ -40,6 +40,7 @@ import "./VotingNeededForOwnership.sol";
 import "./VotingNewAGE.sol";
 import "./VotingNewOwner.sol";
 import "./VotingRemoveOwner.sol";
+import "./WhiteListManager.sol";
 import "./ERC20Receiver.sol";
 
 /**
@@ -72,6 +73,7 @@ contract AGEMainOwnership is
     VotingNewAGE,
     VotingNewOwner,
     VotingRemoveOwner,
+    WhiteListManager,
     ERC20Receiver,
     IERC721Receiver {
     
@@ -148,4 +150,9 @@ contract AGEMainOwnership is
         IERC721(msg.sender).safeTransferFrom(address(this), _implementation(), tokenId);
         return this.onERC721Received.selector;
     }
+
+    function _isMainOwner(address ownerAddress) internal view override(BaseUtility, BaseAnh, BaseMain) returns (bool) {
+        return BaseMain._isMainOwner(ownerAddress);
+    }
+
 }

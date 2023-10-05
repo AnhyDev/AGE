@@ -42,6 +42,9 @@ abstract contract AnhydriteManager is BaseUtility {
 
     address internal mainOwnership;
 
+    // Stores the whitelist status of each address
+    mapping(address => bool) internal _whiteList;
+
     // Returns the Ethereum address of the MainOwnership contract.
     function getMainOwnership() external view returns (address) {
         return _getMain();
@@ -59,6 +62,22 @@ abstract contract AnhydriteManager is BaseUtility {
     function setAGEAddress(address age) external {
         if (msg.sender == _getMain()) {
             _setAddressAge(age);
+        } else {
+            revert("AnhydriteManager: Only the MainOwnership contract can perform this function");
+        }
+    }
+
+    /*
+     * Public function to check if an address is on the whitelist.
+     * It returns a boolean value indicating the whitelist status of the given address `checked`.
+     */
+    function checkWhitelist(address checked) external view returns (bool) {
+        return _whiteList[checked];
+    }
+
+    function changeWhitelist(address contractAddress) external {
+        if (msg.sender == _getMain()) {
+            _whiteList[contractAddress] = !_whiteList[contractAddress];
         } else {
             revert("AnhydriteManager: Only the MainOwnership contract can perform this function");
         }
