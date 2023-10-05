@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/BaseProxy.sol]
+// @filepath Repository Location: [solidity/global/main/BaseMain.sol]
 
 pragma solidity ^0.8.19;
 
@@ -62,9 +62,8 @@ abstract contract BaseMain is BaseAnh {
     // Blacklisted addresses
     mapping(address => bool) internal _blackList;
 
-    // Returns global contract (AGE) address
-    function _implementation() internal view returns (address){
-        return _implementationAGE;
+    function _getMain() internal view override virtual returns(address) {
+        return address(this);
     }
 
     // Validates owner's voting rights

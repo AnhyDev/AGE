@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/VotingRemoveOwner.sol]
+// @filepath Repository Location: [solidity/global/main/VotingRemoveOwner.sol]
 
 pragma solidity ^0.8.19;
 
@@ -91,6 +91,7 @@ abstract contract VotingRemoveOwner is VoteUtility, BaseMain {
     // Completion of voting
     function _completionVotingRemoveOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
         emit VotingCompletedForRemoveOwner(msg.sender, _proposedRemoveOwner, vote, votestrue, votesfalse);
+        _increaseByPercent(_votesForRemoveOwner.isTrue, _votesForRemoveOwner.isFalse);
         _resetVote(_votesForRemoveOwner);
         _isOwnerVotedOut[_proposedRemoveOwner] = false;
         _proposedRemoveOwner = address(0);

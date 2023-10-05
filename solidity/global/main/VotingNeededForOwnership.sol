@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/VotingNewImplementation.sol]
+// @filepath Repository Location: [solidity/global/main/VotingNeededForOwnership.sol]
 
 pragma solidity ^0.8.19;
 
@@ -86,6 +86,7 @@ abstract contract VotingNeededForOwnership is VoteUtility, BaseMain {
     // Completion of voting
     function _completionVotingNeededOwnership(bool vote, uint256 votestrue, uint256 votesfalse) internal {
         emit VotingCompletedForTokensNeeded(msg.sender, vote, votestrue, votesfalse);
+        _increaseByPercent(_votesForTokensNeeded.isTrue, _votesForTokensNeeded.isFalse);
         _resetVote(_votesForTokensNeeded);
         _proposedTokensNeeded = 0;
     }

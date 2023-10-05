@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/VotingNewAGE.sol]
+// @filepath Repository Location: [solidity/global/main/VotingNewAGE.sol]
 
 pragma solidity ^0.8.19;
 
@@ -85,6 +85,7 @@ abstract contract VotingNewAGE is VoteUtility, BaseMain {
     // Completion of voting
     function _completionVotingAGE(bool vote, uint256 votestrue, uint256 votesfalse) internal {
         emit VotingCompletedForNewAGE(msg.sender, vote, votestrue, votesfalse);
+        _increaseByPercent(_votesForNewAGE.isTrue, _votesForNewAGE.isFalse);
         _resetVote(_votesForNewAGE);
         _proposedAGE = address(0);
     }

@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/Proxy.sol]
+// @filepath Repository Location: [solidity/global/main/Provider.sol]
 
 pragma solidity ^0.8.19;
 
@@ -80,7 +80,7 @@ abstract contract Provider is IProvider, BaseMain {
 
     // Increases interest for voting participants
     function increase(address[] memory addresses) external {
-        require(msg.sender == address(ANHYDRITE), "Proxy: This is a disabled feature for you");
+        require(msg.sender == address(ANHYDRITE), "Provider: This is a disabled feature for you");
         for (uint256 i = 0; i < addresses.length; i++) {
             _increaseByPercent(addresses[i]);
         }

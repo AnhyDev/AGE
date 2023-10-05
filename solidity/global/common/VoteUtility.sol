@@ -154,7 +154,7 @@ abstract contract VoteUtility is Ownable {
      * - Arguments:
      *   - result: The voting result to complete.
      */
-    function _completionVoting(VoteResult storage result) internal {
+    function _completionVoting(VoteResult storage result) internal virtual {
         _increaseArrays(result);
         _resetVote(result);
     }

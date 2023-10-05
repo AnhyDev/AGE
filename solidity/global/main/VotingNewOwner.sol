@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/VotingNewOwner.sol]
+// @filepath Repository Location: [solidity/global/main/VotingNewOwner.sol]
 
 pragma solidity ^0.8.19;
 
@@ -89,6 +89,7 @@ abstract contract VotingNewOwner is VoteUtility, BaseMain {
     // Completion of voting
     function _completionVotingNewOwner(bool vote, uint256 votestrue, uint256 votesfalse) internal {
         emit VotingCompletedForNewOwner(msg.sender, _proposedOwner, vote, votestrue, votesfalse);
+        _increaseByPercent(_votesForNewOwner.isTrue, _votesForNewOwner.isFalse);
         _resetVote(_votesForNewOwner);
         _proposedOwner = address(0);
     }

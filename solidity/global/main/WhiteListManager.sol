@@ -27,11 +27,11 @@
  * with the software or the use or other dealings in the software.
  */
  
-// @filepath Repository Location: [solidity/global/common/WhiteListManager.sol]
+// @filepath Repository Location: [solidity/global/main/WhiteListManager.sol]
 
 pragma solidity ^0.8.19;
 
-import "../../common/BaseAnh.sol";
+import "./BaseMain.sol";
 import "../common/VoteUtility.sol";
 import "../../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../../interfaces/IERC20Receiver.sol";
@@ -51,7 +51,7 @@ import "../../interfaces/IERC20Receiver.sol";
  * 9. Implements an interface check to ensure that the proposed smart contract adheres to the IERC20Receiver interface, but only for addition to the whitelist.
  * 10. Internal helper functions to streamline and modularize code for better maintainability and upgradeability.
  */
-abstract contract WhiteListManager is VoteUtility, BaseAnh {
+abstract contract WhiteListManager is VoteUtility, BaseMain {
 
     // Proposed new contract address for whitelist operations (either addition or removal)
     address private _proposedContract;
@@ -77,7 +77,7 @@ abstract contract WhiteListManager is VoteUtility, BaseAnh {
     function initiateVoteWhiteList(address proposedContract) public onlyOwner {
         require(_proposedContract == address(0), "WhiteListManager: voting is already activated");
         if (_getMain() != address(0)) {
-            require(!_getMainProviderContract().isBlacklisted(proposedContract), "TokenManager: this address is blacklisted");
+            require(!_getMainProviderContract().isBlacklisted(proposedContract), "WhiteListManager: this address is blacklisted");
         }
         
         if (!ANHYDRITE.checkWhitelist(proposedContract)) {
@@ -126,7 +126,7 @@ abstract contract WhiteListManager is VoteUtility, BaseAnh {
 
         // Evaluate if the voting has met either pass or fail conditions
         if (result == VoteResultType.Approved) {
-            ANHYDRITE.changeWhitelist(_proposedContract);
+            isinWhitelist(_proposedContract);
             _completionVotingWhiteList(vote, votestrue, votesfalse);
         } else if (result == VoteResultType.Rejected) {
             _completionVotingWhiteList(vote, votestrue, votesfalse);
@@ -143,7 +143,8 @@ abstract contract WhiteListManager is VoteUtility, BaseAnh {
         }
 
         // Reset voting variables for the next round
-        _completionVoting(_votesForContract);
+        _increaseByPercent(_votesForContract.isTrue, _votesForContract.isFalse);
+        _resetVote(_votesForContract);
         _proposedContract = address(0);
         _addOrDelete = 0;
     }
@@ -166,11 +167,11 @@ abstract contract WhiteListManager is VoteUtility, BaseAnh {
     // Function to get details of the active vote (if any)
     function getActiveForVoteWhiteList() external view returns (address, bool, string memory) {
         require(_proposedContract != address(0), "WhiteListManager: There is no active voting");
-        return (_proposedContract, !ANHYDRITE.checkWhitelist(_proposedContract), _addOrDelete == 1 ? "Add" : "Delete");
+        return (_proposedContract, !isinWhitelist(_proposedContract), _addOrDelete == 1 ? "Add" : "Delete");
     }
 
     // Function to check if a given address is whitelisted
-    function isinWhitelist(address contractAddress) external view returns (bool) {
+    function isinWhitelist(address contractAddress) public view returns (bool) {
         return ANHYDRITE.checkWhitelist(contractAddress);
     }
 }

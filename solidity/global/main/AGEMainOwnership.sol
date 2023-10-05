@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/proxy/AGEMainOwnership.sol]
+// @filepath Repository Location: [solidity/global/main/AGEMainOwnership.sol]
 
 pragma solidity ^0.8.19;
 
@@ -89,7 +89,7 @@ contract AGEMainOwnership is
 
     // Allows an owner to voluntarily exit and withdraw their tokens.
     function voluntarilyExit() external proxyOwner {
-        require(!_isOwnerVotedOut[msg.sender], "AnhydriteProxyOwners: You have been voted out");
+        require(!_isOwnerVotedOut[msg.sender], "AGEMainOwnership: You have been voted out");
         
         uint256 balance = _balanceOwner[msg.sender];
         if (balance > 0) {
@@ -104,14 +104,14 @@ contract AGEMainOwnership is
         if (_totalOwners == 0) {
             uint256 remainingBalance = ANHYDRITE.balanceOf(address(this));
             if (remainingBalance > 0) {
-                require(ANHYDRITE.transfer(address(ANHYDRITE), remainingBalance), "AnhydriteProxyOwners: Failed to return remaining tokens to ANHYDRITE contract");
+                require(ANHYDRITE.transfer(address(ANHYDRITE), remainingBalance), "AGEMainOwnership: Failed to return remaining tokens to ANHYDRITE contract");
             }
         }
     }
     
     // Allows an owner to withdraw excess tokens from their deposit.
     function withdrawExcessTokens() external proxyOwner {
-        require(!_isOwnerVotedOut[msg.sender], "AnhydriteProxyOwners: You have been voted out");
+        require(!_isOwnerVotedOut[msg.sender], "AGEMainOwnership: You have been voted out");
         uint256 ownerBalance = _balanceOwner[msg.sender];
         uint256 excess = 0;
 
@@ -128,31 +128,27 @@ contract AGEMainOwnership is
             if(ANHYDRITE.balanceOf(address(this)) < amount) {
                 ANHYDRITE.transferForMainOwnership(amount);
             }
-            require(ANHYDRITE.transfer(recepient, amount), "AnhydriteProxyOwners: Failed to transfer tokens");
+            require(ANHYDRITE.transfer(recepient, amount), "AGEMainOwnership: Failed to transfer tokens");
     }
 
     // Allows the contract to rescue any accidentally sent tokens, except for its native Anhydrite token.
     function rescueTokens(address tokenAddress) external proxyOwner {
-        require(tokenAddress != address(ANHYDRITE), "AnhydriteProxyOwners: Cannot rescue the main token");
+        require(tokenAddress != address(ANHYDRITE), "AGEMainOwnership: Cannot rescue the main token");
     
         IERC20 rescueToken = IERC20(tokenAddress);
         uint256 balance = rescueToken.balanceOf(address(this));
     
-        require(balance > 0, "AnhydriteProxyOwners: No tokens to rescue");
+        require(balance > 0, "AGEMainOwnership: No tokens to rescue");
     
-        require(rescueToken.transfer(_implementation(), balance), "AnhydriteProxyOwners: Transfer failed");
+        require(rescueToken.transfer(address(ANHYDRITE), balance), "AGEMainOwnership: Transfer failed");
     }
 
     // Handles received NFTs and forwards them
     function onERC721Received(address, address, uint256 tokenId, bytes calldata) external override returns (bytes4) {
-        require(IERC165(msg.sender).supportsInterface(0x80ac58cd), "AnhydriteProxyOwners: Sender does not support ERC-721");
+        require(IERC165(msg.sender).supportsInterface(0x80ac58cd), "AGEMainOwnership: Sender does not support ERC-721");
 
-        IERC721(msg.sender).safeTransferFrom(address(this), _implementation(), tokenId);
+        IERC721(msg.sender).safeTransferFrom(address(this), address(ANHYDRITE), tokenId);
         return this.onERC721Received.selector;
-    }
-
-    function _isMainOwner(address ownerAddress) internal view override(BaseUtility, BaseAnh, BaseMain) returns (bool) {
-        return BaseMain._isMainOwner(ownerAddress);
     }
 
 }
