@@ -48,7 +48,7 @@ abstract contract BaseAnh is BaseUtility {
         return ANHYDRITE.getAGEAddress();
     }
 
-    function _isMainOwner(address senderAddress) internal view override returns (bool) {
+    function _isMainOwner(address senderAddress) internal view override virtual returns (bool) {
         return _getMainProviderContract().isProxyOwner(senderAddress);
     }
 
@@ -56,7 +56,7 @@ abstract contract BaseAnh is BaseUtility {
         revert("BaseAnh: A plug for implementing the interface standard");
     }
 
-    function _setAddressAge(address /*age*/) internal pure override {
-        revert("BaseAnh: A plug for implementing the interface standard");
+    function _setAddressAge(address age) internal override {
+        ANHYDRITE.setAGEAddress(age);
     }
 }

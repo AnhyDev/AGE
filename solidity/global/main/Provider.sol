@@ -31,21 +31,16 @@
 
 pragma solidity ^0.8.19;
 
-import "./BaseProxy.sol";
+import "./BaseMain.sol";
 import "../../interfaces/IProvider.sol";
 
 // Proxy is an abstract contract that implements the IProvider interface and adds utility and ownership functionality.
-abstract contract Provider is IProvider, BaseProxy {
+abstract contract Provider is IProvider, BaseMain {
 
     // Function to forward Ether received to the implementation contract
     receive() external payable {
         address payable recipient = payable(address(ANHYDRITE));
         recipient.transfer(msg.value);
-    }
-
-    // Returns the address of the implementation contract
-    function implementation() external override view returns (address) {
-        return _implementation();
     }
 
     // Checks if the contract's basic functions are stopped
@@ -60,7 +55,7 @@ abstract contract Provider is IProvider, BaseProxy {
 
     // Checks if an address is a proxy owner (has voting rights)
     function isProxyOwner(address ownerAddress) external override view returns (bool) {
-        return _isProxyOwner(ownerAddress);
+        return _isMainOwner(ownerAddress);
     }
 
     // Checks if an address is an owner

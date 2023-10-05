@@ -37,7 +37,7 @@ import "../../openzeppelin/contracts/interfaces/IERC721.sol";
 import "./Provider.sol";
 import "./VotingStopped.sol";
 import "./VotingNeededForOwnership.sol";
-import "./VotingNewImplementation.sol";
+import "./VotingNewAGE.sol";
 import "./VotingNewOwner.sol";
 import "./VotingRemoveOwner.sol";
 import "./ERC20Receiver.sol";
@@ -65,11 +65,11 @@ import "./ERC20Receiver.sol";
  *      Events:
  *      - VoluntarilyExit: Emitted when an owner voluntarily exits.
  */
-contract AGEProxyOwners is
+contract AGEMainOwnership is
     Provider,
     VotingStopped,
     VotingNeededForOwnership,
-    VotingNewImplementation,
+    VotingNewAGE,
     VotingNewOwner,
     VotingRemoveOwner,
     ERC20Receiver,
@@ -124,7 +124,7 @@ contract AGEProxyOwners is
             _balanceOwner[recepient] -= amount;
 
             if(ANHYDRITE.balanceOf(address(this)) < amount) {
-                ANHYDRITE.transferForProxy(amount);
+                ANHYDRITE.transferForMainOwnership(amount);
             }
             require(ANHYDRITE.transfer(recepient, amount), "AnhydriteProxyOwners: Failed to transfer tokens");
     }

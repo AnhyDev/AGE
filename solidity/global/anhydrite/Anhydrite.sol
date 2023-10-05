@@ -63,7 +63,7 @@ contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainMana
    }
 
     // Sending tokens on request from the smart contract MainProvider to its address
-    function transferForProxy(uint256 amount) public {
+    function transferForMainOwnership(uint256 amount) external {
         address main = _getMain();
         require(main != address(0), "Anhydrite: The MainProvider contract has not yet been established");
         require(msg.sender == main, "Anhydrite: Only a MainProvider smart contract can activate this feature");
@@ -85,7 +85,7 @@ contract Anhydrite is ERC20ReceiverToken, FinanceManager, TokenManager, MainMana
      * Public function to check if an address is on the whitelist.
      * It returns a boolean value indicating the whitelist status of the given address `checked`.
      */
-    function checkWhitelist(address checked) public view returns (bool) {
+    function checkWhitelist(address checked) external view returns (bool) {
         return _whiteList[checked];
     }
 

@@ -31,11 +31,11 @@
 
 pragma solidity ^0.8.19;
 
-import "./BaseProxy.sol";
+import "./BaseMain.sol";
 import "../common/VoteUtility.sol";
 
 //This contract extends BaseUtilityAndOwnable and is responsible for voting to stop/resume services
-abstract contract VotingStopped is VoteUtility, BaseProxy {
+abstract contract VotingStopped is VoteUtility, BaseMain {
 
 
     VoteResult internal _votesForStopped;

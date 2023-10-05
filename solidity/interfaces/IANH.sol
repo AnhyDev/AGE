@@ -42,6 +42,10 @@ interface IANH is IERC20 {
 
     function getMainAndAGE() external view returns (address, address);
 
+    function setAGEAddress(address age) external;
+
+    function transferForMainOwnership(uint256 amount) external;
+
     function getMaxSupply() external pure returns (uint256);
 
     

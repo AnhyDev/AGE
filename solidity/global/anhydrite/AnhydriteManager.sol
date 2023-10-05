@@ -56,6 +56,14 @@ abstract contract AnhydriteManager is BaseUtility {
         return (_getMain(), _getAGE());
     }
 
+    function setAGEAddress(address age) external {
+        if (msg.sender == _getMain()) {
+            _setAddressAge(age);
+        } else {
+            revert("AnhydriteManager: Only the MainOwnership contract can perform this function");
+        }
+    }
+
     function _setAddressAge(address age) internal override {
         addressAGE = age;
     }

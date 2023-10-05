@@ -31,12 +31,12 @@
 
 pragma solidity ^0.8.19;
 
-import "./BaseProxy.sol";
+import "./BaseMain.sol";
 import "../common/VoteUtility.sol";
 
 
 // Abstract contract for voting to remove an owner.
-abstract contract VotingRemoveOwner is VoteUtility, BaseProxy {
+abstract contract VotingRemoveOwner is VoteUtility, BaseMain {
     
     // Holds the proposed to remove an owner
     address internal _proposedRemoveOwner;

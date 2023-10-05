@@ -31,12 +31,12 @@
 
 pragma solidity ^0.8.19;
 
-import "./BaseProxy.sol";
+import "./BaseMain.sol";
 import "../common/VoteUtility.sol";
 
 
 // This contract extends BaseUtilityAndOwnable and is responsible for voting to tokens required for ownership rights
-abstract contract VotingNeededForOwnership is VoteUtility, BaseProxy {
+abstract contract VotingNeededForOwnership is VoteUtility, BaseMain {
 
 
     // Holds the proposed new token count needed for voting rights

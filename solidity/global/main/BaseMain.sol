@@ -36,7 +36,7 @@ import "../../interfaces/IAGE.sol";
 import "../../common/BaseAnh.sol";
 
 
-abstract contract BaseProxy is BaseAnh {
+abstract contract BaseMain is BaseAnh {
 	
     // Service status flags
     bool internal _stopped = false;
@@ -68,7 +68,7 @@ abstract contract BaseProxy is BaseAnh {
     }
 
     // Validates owner's voting rights
-    function _isProxyOwner(address ownerAddress) internal view override virtual returns (bool) {
+    function _isMainOwner(address ownerAddress) internal view override virtual returns (bool) {
         return _owners[ownerAddress] 
         && !_isOwnerVotedOut[ownerAddress]
         && _balanceOwner[ownerAddress] >= _tokensNeededForOwnership;
@@ -76,7 +76,7 @@ abstract contract BaseProxy is BaseAnh {
 
     // A modifier that checks whether an address is in the list of owners, and whether a vote for exclusion is open for this address
     modifier proxyOwner() {
-        require(_isProxyOwner(msg.sender), "BaseProxy: Not an owner");
+        require(_isMainOwner(msg.sender), "BaseMain: Not an owner");
         _;
     }
 

@@ -31,12 +31,12 @@
 
 pragma solidity ^0.8.19;
 
-import "./BaseProxy.sol";
+import "./BaseMain.sol";
 import "../common/VoteUtility.sol";
 
 
 // This abstract contract is designed for handling the voting process for new owners.
-abstract contract VotingNewOwner is VoteUtility, BaseProxy {
+abstract contract VotingNewOwner is VoteUtility, BaseMain {
    
     // Internal state variables 
     address internal _proposedOwner;
