@@ -70,13 +70,13 @@ contract AGEMetadata is ModuleTypeData, FinanceManager, ERC20Receiver {
 
     constructor () {
         // Initializes the _gamesData mapping with predefined gaming server data.
-        _gamesData[0] = [   "Minecraft",               "Anhydrite Minecraft server contract",              "AGEMC"  ];
-        _gamesData[1] = [   "GTA",                     "Grand Theft Auto server contract",                 "AGEGTA" ];
-        _gamesData[2] = [   "Terraria",                "Anhydrite Terraria server contract",               "AGETER" ];
-        _gamesData[3] = [   "ARK Survival Evolved",    "Anhydrite ARK Survival Evolved server contract",   "AGESE"  ];
-        _gamesData[4] = [   "Rust",                    "Anhydrite Rust server contract",                   "AGERST" ];
-        _gamesData[5] = [   "Counter Strike",          "Counter-Strike server contract",                   "AGECS"  ];
-        _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "Anhydrite server module ",                         "AGESM"  ];
+        _gamesData[0] = [   "Minecraft",               "AGE Minecraft server contract",              "AGEMC"  ];
+        _gamesData[1] = [   "GTA",                     "AGE Grand Theft Auto server contract",       "AGEGTA" ];
+        _gamesData[2] = [   "Terraria",                "AGE Terraria server contract",               "AGETER" ];
+        _gamesData[3] = [   "ARK Survival Evolved",    "AGE ARK Survival Evolved server contract",   "AGESE"  ];
+        _gamesData[4] = [   "Rust",                    "AGE Rust server contract",                   "AGERST" ];
+        _gamesData[5] = [   "Counter Strike",          "AGE Counter-Strike server contract",         "AGECS"  ];
+        _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "AGE server module ",                         "AGESM"  ];
     }
     
     /**

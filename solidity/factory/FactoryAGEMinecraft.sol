@@ -74,10 +74,10 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
      * @return The address of the newly deployed AGEMinecraft module.
      */
     function deployModule(string memory name, string memory symbol,
-            address /*serverContractAddress*/, address ownerAddress, string memory info)
+            address /*serverContractAddress*/, address ownerAddress, string memory uri)
                 external onlyAllowed(ownerAddress) returns (address) {
 
-        AGEMinecraft newModule = new AGEMinecraft(ownerAddress, name, symbol, info);
+        AGEMinecraft newModule = new AGEMinecraft(ownerAddress, name, symbol, uri);
         
         isDeploy[ownerAddress] = address(newModule);
         deployedModules.push(address(newModule));

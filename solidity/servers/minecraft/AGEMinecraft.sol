@@ -37,6 +37,7 @@ import "../../common/FinanceManager.sol";
 import "../../common/ERC20Receiver.sol";
 import "../common/CashbackStorage.sol";
 import "../common/NFTDirectSales.sol";
+import "../common/CheckingData.sol";
 import "../common/Modules.sol";
 
 contract AGEMinecraft is
@@ -45,7 +46,8 @@ contract AGEMinecraft is
   FinanceManager,
   NFTDirectSales,
   Modules,
-  CashbackStorage {
+  CashbackStorage,
+  CheckingData {
 
     using Counters for Counters.Counter;
     
@@ -55,12 +57,10 @@ contract AGEMinecraft is
     uint16 private _serverPort;
     string private _serverName;
     string private _serverAddress;
-
-    IERC20 public _tokenServer;
+    address private serverToken;
 
     constructor(address creator, string memory name, string memory symbol, string memory uri) ERC721(name, symbol) Ownable(creator) {
-        _newMint(creator, uri);
-        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC721Receiver"), address(this));
+        _newMint(address(this), uri);
     }
 
 
@@ -71,6 +71,16 @@ contract AGEMinecraft is
         _setTokenURI(tokenId, uri);
     }
 
+	function getServerDetails() external view override returns (ServerInfo memory) {
+	    ServerInfo memory info = ServerInfo({
+	        ipAddress: _serverIpAddress,
+	        port: _serverPort,
+	        name: _serverName,
+	        domainAddress: _serverAddress,
+	        tokenAddress: serverToken
+	    });
+	    return info;
+	}
 
     function setServerDetails(
         string calldata newServerIpAddress, uint16 newServerPort, string calldata newServerName, string calldata newServerAddress) external override onlyOwner {
@@ -83,7 +93,7 @@ contract AGEMinecraft is
         bool validPort = _isValidMinecraftPort(newServerPort);
         bool validServerName = bytes(newServerName).length != 0;
         bool validServerAddress = _isValidDomain(newDomainAddress);
-        require(validIP || validPort || validServerName || validServerAddress, "AGEMinecraftServer: At least one valid parameter is required");
+        require(validIP || validPort || validServerName || validServerAddress, "AGEMinecraft: At least one valid parameter is required");
 
         if (validIP) {
             _serverIpAddress = newServerIpAddress;
@@ -103,7 +113,7 @@ contract AGEMinecraft is
     }
     
     function setServerIpAddress(string calldata newServerIpAddress) external override onlyOwner {
-        require(_isValidIPv4String(newServerIpAddress), "Invalid IP address");
+        require(_isValidIPv4String(newServerIpAddress), "AGEMinecraft: Invalid IP address");
         _serverIpAddress = newServerIpAddress;
     }
     
@@ -112,7 +122,7 @@ contract AGEMinecraft is
     }
 
     function setServerPort(uint16 newServerPort) external override onlyOwner {
-        _isValidMinecraftPort(newServerPort);
+        require(_isValidMinecraftPort(newServerPort), "AGEMinecraft: Invalid Port");
         _serverPort = newServerPort;
     }
 
@@ -129,7 +139,7 @@ contract AGEMinecraft is
     }
 
     function setServerDomainAddress(string calldata newDomainAddress) external override onlyOwner {
-        _isValidDomain(newDomainAddress);
+        require(_isValidDomain(newDomainAddress), "AGEMinecraft: Invalid domain address");
         _serverAddress = newDomainAddress;
     }
 
@@ -137,72 +147,18 @@ contract AGEMinecraft is
         return _serverAddress;
     }
 
+    function getServerToken() public view returns (address) {
+        return address(serverToken);
+    }
+
+    // Функція для зміни адреси serverToken
+    function setServerToken(address _serverToken) public onlyOwner {
+        require(true, "AGEMinecraft: Invalid ServerToken address");
+        serverToken = _serverToken;
+    }
+    
     function supportsInterface(bytes4 interfaceId) public view override (ERC20Receiver, NFTDirectSales) returns (bool) {
         return  interfaceId == type(IAGEMinecraft).interfaceId ||
                 super.supportsInterface(interfaceId);
-    }
-
-    function _isValidIPv4String(string memory ipString) private pure returns (bool) {
-        // Перевірка довжини рядка
-        if (bytes(ipString).length < 7 || bytes(ipString).length > 15) return false;
-        
-        bytes memory ipBytes = bytes(ipString);
-        uint8 dotCount = 0;
-        bytes4 ipBytesTemp;
-        uint8 currentOctet = 0;
-
-        // Конвертація рядка із символів та перевірка валідності
-        for (uint256 i = 0; i < ipBytes.length; i++) {
-            if ((ipBytes[i] < "0" || ipBytes[i] > "9") && ipBytes[i] != ".") return false;
-
-            if (ipBytes[i] == ".") {
-                if (currentOctet > 255 || currentOctet == 0) return false;
-                ipBytesTemp |= bytes4(bytes1(currentOctet & 0xFF)) >> (dotCount * 8);
-                currentOctet = 0;
-                dotCount++;
-            } else {
-                currentOctet = currentOctet * 10 + uint8(ipBytes[i]) - 48;
-            }
-        }
-
-        // Перевірка кількості крапок та валідності останнього октета
-        if (dotCount != 3 || currentOctet > 255 || currentOctet == 0) return false;
-        ipBytesTemp |= bytes4(bytes1(currentOctet & 0xFF));
-
-        // Перевірка валідності конвертованого IP-адреси та чи він не є приватним
-        if (ipBytesTemp == bytes4(0) || 
-            uint8(ipBytesTemp[0]) == 10 || 
-            (uint8(ipBytesTemp[0]) == 172 && (uint8(ipBytesTemp[1]) >= 16 && uint8(ipBytesTemp[1]) <= 31)) || 
-            (uint8(ipBytesTemp[0]) == 192 && uint8(ipBytesTemp[1]) == 168)) return false;
-
-        return true;
-    }
-
-    function _isValidDomain(string memory domain) private pure returns (bool) {
-        bytes memory domainBytes = bytes(domain);
-        if(domainBytes.length < 3 || domainBytes[0] == '.' || domainBytes[domainBytes.length - 1] == '.') return false;
-        
-        uint dotCount = 0;
-        
-        for(uint i=0; i<domainBytes.length; i++) {
-            bytes1 char = domainBytes[i];
-            
-            if(char == '.') {
-                dotCount++;
-                if(dotCount > 3) return false;
-            }
-            
-            if(!((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '-' || char == '.')) return false;
-            if(i > 0 && domainBytes[i] == '.' && domainBytes[i-1] == '.') return false; // перевіряємо на '..'
-        }
-        
-        if(dotCount < 1 || domainBytes[domainBytes.length - 1] == '-') return false;
-
-        return true;
-    }
-
-    function _isValidMinecraftPort(uint16 port) private pure returns (bool) {
-        if (port < 1024) return false;
-        return true;
     }
 }

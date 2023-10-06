@@ -33,6 +33,8 @@ pragma solidity ^0.8.19;
 
 interface IAGEMinecraft {
 
+	function getServerDetails() external view returns (ServerInfo memory);
+
     function setServerDetails(string calldata ipString, uint16 newServerPort, string calldata newServerName, string calldata newServerAddress) external;
 
     function setServerIpAddress(string calldata ipString) external;
@@ -51,5 +53,16 @@ interface IAGEMinecraft {
     
     function getServerDomainAddress() external view returns (string memory);
 
+    function getServerToken() external view returns (address);
+
+    function setServerToken(address _serverToken) external;
+
+	struct ServerInfo {
+	    string ipAddress;
+	    uint16 port;
+	    string name;
+	    string domainAddress;
+	    address tokenAddress;
+	}
 }
 

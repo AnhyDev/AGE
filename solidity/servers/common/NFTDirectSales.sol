@@ -38,6 +38,7 @@ import "../../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../../openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../../openzeppelin/contracts/access/Ownable.sol";
+import "../../common/BaseUtility.sol";
 
 /**
  * @title NFTDirectSales
@@ -46,7 +47,7 @@ import "../../openzeppelin/contracts/access/Ownable.sol";
  * This is an abstract contract meant to be extended by concrete implementations, which should provide the
  * implementation for the _newMint function.
  */
-abstract contract NFTDirectSales is ERC721Enumerable, ERC721URIStorage, ERC721Burnable, Ownable {
+abstract contract NFTDirectSales is ERC721Enumerable, ERC721URIStorage, ERC721Burnable, Ownable, BaseUtility {
 
     // Struct representing the price of the NFT, can be in Ether or ERC20 tokens.
     struct Price {
@@ -59,6 +60,10 @@ abstract contract NFTDirectSales is ERC721Enumerable, ERC721URIStorage, ERC721Bu
 
     // Event emitted when an NFT is purchased.
     event NFTPurchased(address indexed purchaser);
+
+    constructor() {
+        erc1820Registry.setInterfaceImplementer(address(this), keccak256("ERC721Receiver"), address(this));
+    }
 
     /**
      * @dev Allows the owner to set the price of the NFT.
