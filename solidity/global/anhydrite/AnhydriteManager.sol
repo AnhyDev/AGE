@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
  
-// @filepath Repository Location: [solidity/global/common/AnhydriteManager.sol]
+// @filepath Repository Location: [solidity/global/anhydrite/AnhydriteManager.sol]
 
 pragma solidity ^0.8.19;
 
@@ -52,11 +52,11 @@ abstract contract AnhydriteManager is BaseUtility {
 
     // Returns the Ethereum address of the AGE contract.
     function getAGEAddress() external view returns (address) {
-        return _getMain();
+        return _getAGE();
     }
 
     function getMainAndAGE() external view returns (address, address) {
-        return (_getMain(), _getAGE());
+        return _getMainAndAGE();
     }
 
     function setAGEAddress(address age) external {
