@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/implementation/ModuleManager.sol]
+// @filepath Repository Location: [solidity/global/global-age/ModuleManager.sol]
 
 pragma solidity ^0.8.19;
 
@@ -126,12 +126,22 @@ abstract contract ModuleManager is MonitoringManager, GameData {
 
     // Internal function to get modules filtered by type.
     function _getFilteredModules(uint256 filterType) private view returns (Module[] memory) {
-        uint256 count = 0;
+
+	    if (filterType == 0xFFFFFFFF) {
+	        Module[] memory allModules = new Module[](_moduleList.length);
+	        for (uint256 i = 0; i < _moduleList.length; i++) {
+	            allModules[i] = _modules[_moduleList[i]];
+	        }
+	        return allModules;
+	    }
+        
         IModuleType.ModuleType filteredType = IModuleType.ModuleType(filterType);
+
+        uint256 count = 0;
 
         for (uint256 i = 0; i < _moduleList.length; i++) {
             bytes32 hash = _moduleList[i];
-            if (filterType == 0xFFFFFFFF || _modules[hash].moduleType == filteredType) {
+            if (_modules[hash].moduleType == filteredType) {
                 count++;
             }
         }
@@ -141,7 +151,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
         uint256 j = 0;
         for (uint256 i = 0; i < _moduleList.length; i++) {
             bytes32 hash = _moduleList[i];
-            if (filterType == 0xFFFFFFFF || _modules[hash].moduleType == filteredType) {
+            if (_modules[hash].moduleType == filteredType) {
                 filteredModules[j] = _modules[hash];
                 j++;
             }
