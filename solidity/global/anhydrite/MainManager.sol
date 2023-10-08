@@ -94,7 +94,7 @@ abstract contract MainManager is VoteUtility, AnhydriteManager {
     
     // Completion of voting
     function _completionVotingNewMain(address oldMain, bool vote, uint256 votestrue, uint256 votesfalse) private {
-        emit VotingNewMainCompleted(oldMain, msg.sender, _proposedMain, vote, votestrue, votesfalse);
+        emit VotingNewMainCompleted(msg.sender, oldMain, _proposedMain, vote, votestrue, votesfalse);
         _completionVoting(_votesForNewMain);
         _proposedMain = address(0);
     }
