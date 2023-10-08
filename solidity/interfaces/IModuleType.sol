@@ -57,7 +57,9 @@ interface IModuleType {
         Voting,
         RatingSystem,
     // Charity Module
-        Charity
+        Charity,
+    // End of list
+        EndOfList
     }
 
     struct ModuleInfo {

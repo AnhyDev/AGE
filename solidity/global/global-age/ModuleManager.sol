@@ -32,6 +32,7 @@
 pragma solidity ^0.8.19;
 
 import "./GameData.sol";
+import "./PriceOfServices.sol";
 import "./MonitoringManager.sol";
 import "../../interfaces/IFactory.sol";
 
@@ -41,7 +42,7 @@ import "../../interfaces/IFactory.sol";
  * It is an extension of a "Monitorings" contract and provides functionality to add new types of modules,
  * update existing ones, and query the state of these modules.
  */
-abstract contract ModuleManager is MonitoringManager, GameData {
+abstract contract ModuleManager is MonitoringManager, GameData, PriceOfServices {
     
     // Structure defining a Module with a name, type, type as a string, and the address of its factory contract.
     struct Module {
@@ -57,8 +58,9 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     mapping(bytes32 => Module) private _modules;
 
     // Adds a new module or updates an existing module
-    function addOrUpdateModule(string memory moduleName, uint256 uintType,  address contractAddress, bool update) external onlyOwner {
-        _addModule(moduleName, uintType, contractAddress, update);
+    function addOrUpdateModule(string memory moduleName, uint256 moduleType,  address contractAddress, bool update) external onlyOwner {
+        require(moduleType < uint256(IModuleType.ModuleType.EndOfList), "ModuleManager: Non-existent moduleType");
+        _addModule(moduleName, moduleType, contractAddress, update);
     }
 
     // Adds a new Game Server module or pdates an existing Game Server module.
@@ -93,7 +95,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
             }
         }
         if (isRevert) {
-            revert("Modules: Such a module already exists");
+            revert("ModuleManager: Such a module already exists");
         }
     }
 
@@ -110,7 +112,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
                 }
             }
         } else {
-                revert("Modules: Such a module does not exist");
+                revert("ModuleManager: Such a module does not exist");
         }
     }
 
@@ -168,10 +170,11 @@ abstract contract ModuleManager is MonitoringManager, GameData {
 
     // Deploys a module on a server. 
     // Checks if the server is authorized to deploy the module.
-    function deployModuleOnServer(string memory factoryName, uint256 uintType, address ownerAddress)
+    function deployModuleOnServer(string memory factoryName, uint256 moduleType, address ownerAddress)
       external onlyServerAutorised(msg.sender) returns (address) {
+        require(moduleType < uint256(IModuleType.ModuleType.EndOfList), "ModuleManager: Non-existent moduleType");
         uint256 END_OF_LIST = 1000;
-        return _deploy(END_OF_LIST, factoryName, uintType, ownerAddress, "");
+        return _deploy(END_OF_LIST, factoryName, moduleType, ownerAddress, "");
     }
 
     // Deploys a new game server contract and adds it to monitoring.
@@ -192,16 +195,30 @@ abstract contract ModuleManager is MonitoringManager, GameData {
     function _mintTokenForServer(address serverAddress) internal virtual;
 
     // Internal function to handle the actual deployment of modules or servers.
-    function _deploy(uint256 gameId, string memory factoryName, uint256 uintType, address ownerAddress, string memory info) private returns (address) {
-        bytes32 hash = _getModuleHash(factoryName, uintType);
+	function _deploy(uint256 gameId, string memory factoryName, uint256 uintType, address ownerAddress, string memory info) private returns (address) {
+	    bytes32 hash = _getModuleHash(factoryName, uintType);
 
-        (string memory name, string memory symbol) = _getServerData(gameId);
-        return IFactory(_getModule(hash).moduleFactory).deployModule(name, symbol, msg.sender, ownerAddress, info);
-    }
+	    (string memory name, string memory symbol) = _getServerData(gameId);
+	    bytes32 key = keccak256(abi.encodePacked(name));
+	    if (_serviceExists(key)) {
+	        uint256 price = _getPrice(key);
+	        
+	        if (msg.sender.code.length > 0) {
+	            bool burnedFromContract = _burnAnhydrite(msg.sender, price);
+	            
+	            if (!burnedFromContract) {
+	                _burnAnhydrite(ownerAddress, price);
+	            }
+	        } else {
+	            _burnAnhydrite(msg.sender, price);
+	        }
+	    }
+	    return IFactory(_getModule(hash).moduleFactory).deployModule(name, symbol, msg.sender, ownerAddress, info);
+	}
 
     // Internal utility function to fetch a module's data.
     function _getModule(bytes32 hash) private view returns (Module memory) {
-        require(_isModuleExists(hash), "Modules: The module with this name and type does not exist");
+        require(_isModuleExists(hash), "ModuleManager: The module with this name and type does not exist");
         return _modules[hash];
     }
 
@@ -212,7 +229,7 @@ abstract contract ModuleManager is MonitoringManager, GameData {
 
     // Modifier to check if the address is an authorized server.
     modifier onlyServerAutorised(address contractAddress) {
-        require(_isServerMonitored(contractAddress), "Modules: This address is not monitored or blocked");
+        require(_isServerMonitored(contractAddress), "ModuleManager: This address is not monitored or blocked");
         _;
     }
 }

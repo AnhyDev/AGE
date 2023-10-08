@@ -34,6 +34,7 @@ pragma solidity ^0.8.19;
 import "../../openzeppelin/contracts/access/Ownable.sol";
 import "../../common/BaseUtility.sol";
 import "../../interfaces/IAGEModule.sol";
+import "../../interfaces/IAGEMetadata.sol";
 
 abstract contract Modules is Ownable, BaseUtility {
 
@@ -60,7 +61,7 @@ abstract contract Modules is Ownable, BaseUtility {
         Module memory module = Module({
             moduleName: name,
             moduleType: moduleType,
-            moduleTypeString: _getFullAGEContract().getModuleTypeString(moduleType),
+            moduleTypeString: IAGEMetadata(_getFullAGEContract().getGameServerMetadata()).getModuleTypeString(moduleType),
             moduleDeployedAddress: contractAddress
         });
 

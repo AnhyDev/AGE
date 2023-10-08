@@ -37,7 +37,7 @@ abstract contract ModuleTypeData is IModuleType {
 
     // A function that returns an array of structures
     function getAllModuleInfos() external pure returns (ModuleInfo[] memory) {
-        uint8 moduleTypeCount = uint8(ModuleType.Charity) + 1;
+        uint8 moduleTypeCount = uint8(ModuleType.EndOfList);
         ModuleInfo[] memory moduleInfos = new ModuleInfo[](moduleTypeCount);
 
         for (uint8 i = 0; i < moduleTypeCount; i++) {
@@ -52,7 +52,11 @@ abstract contract ModuleTypeData is IModuleType {
     }
 
     // Internal utility function to get string representation of a ModuleType enum.
-    function getModuleTypeString(ModuleType moduleType) external pure returns (string memory) {
+    function getModuleTypeString(uint256 moduleTypeId) external pure returns (string memory) {
+        ModuleType moduleType = ModuleType.EndOfList;
+    	if (moduleTypeId < uint256(moduleType)) { 
+            moduleType = ModuleType(moduleTypeId);
+        }
         return _getModuleTypeString(moduleType);
     }
     
@@ -92,7 +96,7 @@ abstract contract ModuleTypeData is IModuleType {
         } else if (moduleType == ModuleType.Charity) {
             return "Charity";
         } else {
-            return "Unknown";
+            return "Non-existent";
         }
     }
 }

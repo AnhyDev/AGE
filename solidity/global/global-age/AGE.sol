@@ -66,15 +66,6 @@ contract AGE is
     // Mapping between contract addresses and their corresponding token IDs.
     mapping(address => uint256) private _contractToken;
 
-    struct Price {
-        string name;
-        uint256 price;
-    }
-    
-    // Mapping to store the price associated with each service name.
-    mapping(bytes32 => Price) internal _prices;
-    bytes32[] internal _priceArray;
-
     constructor() ERC721("Anhydrite Gaming Ecosystem", "AGE") {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
@@ -85,36 +76,25 @@ contract AGE is
 
     // Allows the owner to set the price for a specific service.
     function addPrice(string memory name, uint256 count) public override onlyOwner {
-        bytes32 key = keccak256(abi.encodePacked(name));
-        if (bytes(_prices[key].name).length == 0) {
-            _priceArray.push(key);
-        }
-        _prices[key] = Price(name, count);
+        _addPrice(name, count);
     }
 
     // Retrieves the price for a given service name.
-    function getPrice(bytes32 key) public view override returns (uint256) {
-        return _prices[key].price;
+    function getPrice(bytes32 key) external view override returns (uint256) {
+        return _getPrice(key);
     }
     
-    function getPrices() public view returns (Price[] memory) {
-        uint256 length = _priceArray.length;
-        Price[] memory prices = new Price[](length);
-        
-        for (uint256 i = 0; i < length; i++) {
-            prices[i] = _prices[_priceArray[i]];
-        }
-        
-        return prices;
+    function getPrices() external view returns (Price[] memory) {
+        return _getPrices();
     }
 
     // Retrieves the address of the server associated with a given token ID.
-    function getServerFromTokenId(uint256 tokenId) public view override returns (address) {
+    function getServerFromTokenId(uint256 tokenId) external view override returns (address) {
         return _tokenContract[tokenId];
     }
 
     // Retrieves the token ID associated with a given server address.
-    function getTokenIdFromServer(address serverAddress) public view override returns (uint256) {
+    function getTokenIdFromServer(address serverAddress) external view override returns (uint256) {
         return _contractToken[serverAddress];
     }
 
@@ -132,7 +112,7 @@ contract AGE is
 
     // Internal function to mint a token for a given server.
     function _mintTokenForServer(address serverAddress) internal override {
-        require(_contractToken[serverAddress] == 0, "AnhydriteGamingEcosystem: This contract has already used safeMint");
+        require(_contractToken[serverAddress] == 0, "AGE: This contract has already used safeMint");
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _tokenContract[tokenId] = serverAddress;

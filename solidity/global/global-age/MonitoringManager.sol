@@ -119,11 +119,6 @@ abstract contract MonitoringManager is Ownable {
         return totalVotes;
     }
 
-    // Vote on monitoring for the address
-    function voteForServer(address serverAddress) external {
-        _voteForServer(serverAddress);
-    }
-
     /**
      * @dev Retrieves the monitoring status and optionally the total votes for a given server address.
      * This function iterates through the `_monitoring` array and checks each monitoring contract to determine
@@ -170,25 +165,6 @@ abstract contract MonitoringManager is Ownable {
             false
        );
         return status == ServerStatus.Monitored;
-    }
-
-    event ExceptionInfo(address indexed to, string exception);
-
-    function _voteForServer(address serverAddress) private {
-        require(_isServerMonitored(serverAddress), "Monitorings: This address is not monitored or blocked");
-        address monitoringAddress = _getMonitoring().addr;
-
-        try IAGEMonitoring(monitoringAddress).voteForServer(msg.sender, serverAddress) {
-	    } catch Error(string memory reason) {
-            emit ExceptionInfo(msg.sender, reason);
-	    } catch (bytes memory lowLevelData) {
-            string memory infoError = "Another error";
-            if (lowLevelData.length > 0) {
-                infoError = string(lowLevelData);
-            }
-            emit ExceptionInfo(msg.sender, infoError);
-        }
-            
     }
 
     function _getMonitoring() private view returns (Monitoring memory) {
