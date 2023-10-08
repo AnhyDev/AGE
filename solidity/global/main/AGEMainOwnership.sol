@@ -125,8 +125,10 @@ contract AGEMainOwnership is
     function _transferTokens(address recepient, uint256 amount) private {
             _balanceOwner[recepient] -= amount;
 
-            if(ANHYDRITE.balanceOf(address(this)) < amount) {
-                ANHYDRITE.transferForMainOwnership(amount);
+            uint256 thisBalance = ANHYDRITE.balanceOf(address(this));
+            if(thisBalance < amount) {
+                uint256 neededAmount = amount - thisBalance;
+                ANHYDRITE.transferForMainOwnership(neededAmount);
             }
             require(ANHYDRITE.transfer(recepient, amount), "AGEMainOwnership: Failed to transfer tokens");
     }
