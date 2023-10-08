@@ -52,11 +52,7 @@ abstract contract ModuleTypeData is IModuleType {
     }
 
     // Internal utility function to get string representation of a ModuleType enum.
-    function getModuleTypeString(uint256 moduleTypeId) external pure returns (string memory) {
-        ModuleType moduleType = ModuleType.EndOfList;
-    	if (moduleTypeId < uint256(moduleType)) { 
-            moduleType = ModuleType(moduleTypeId);
-        }
+    function getModuleTypeString(ModuleType moduleType) external pure returns (string memory) {
         return _getModuleTypeString(moduleType);
     }
     
