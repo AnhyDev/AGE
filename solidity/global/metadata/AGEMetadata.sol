@@ -70,13 +70,13 @@ contract AGEMetadata is ModuleTypeData, FinanceManager, ERC20Receiver {
 
     constructor () {
         // Initializes the _gamesData mapping with predefined gaming server data.
-        _gamesData[0] = [   "Minecraft",               "AGE Minecraft server contract",              "AGEMC"  ];
-        _gamesData[1] = [   "GTA",                     "AGE Grand Theft Auto server contract",       "AGEGTA" ];
-        _gamesData[2] = [   "Terraria",                "AGE Terraria server contract",               "AGETER" ];
-        _gamesData[3] = [   "ARK Survival Evolved",    "AGE ARK Survival Evolved server contract",   "AGESE"  ];
-        _gamesData[4] = [   "Rust",                    "AGE Rust server contract",                   "AGERST" ];
-        _gamesData[5] = [   "Counter Strike",          "AGE Counter-Strike server contract",         "AGECS"  ];
-        _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "AGE server module ",                         "AGESM"  ];
+        _gamesData[0] = [   "Minecraft",               "AGE Minecraft server",              "AGEMC"  ];
+        _gamesData[1] = [   "GTA",                     "AGE Grand Theft Auto server",       "AGEGTA" ];
+        _gamesData[2] = [   "Terraria",                "AGE Terraria server",               "AGETER" ];
+        _gamesData[3] = [   "ARK Survival Evolved",    "AGE ARK Survival Evolved server",   "AGESE"  ];
+        _gamesData[4] = [   "Rust",                    "AGE Rust server",                   "AGERST" ];
+        _gamesData[5] = [   "Counter Strike",          "AGE Counter-Strike server",         "AGECS"  ];
+        _gamesData[END_OF_LIST] = [ "END_OF_LIST",     "AGE server module",                 "AGEm"   ];
     }
     
     /**
@@ -120,13 +120,13 @@ contract AGEMetadata is ModuleTypeData, FinanceManager, ERC20Receiver {
      * @param contractSymbol The symbol of the contract related to the game.
      */
     function addServerData(uint256 gameId, string memory gameName, string memory contractName, string memory contractSymbol) public onlyOwner {
-        require(gameId < END_OF_LIST, "GameServerMetadata: gameId must be less than 1000");
+        require(gameId < END_OF_LIST, "AGEMetadata: gameId must be less than 1000");
         if (_gamesData[gameId].length == 0) {
             _gamesData[gameId].push(gameName);
             _gamesData[gameId].push(contractName);
             _gamesData[gameId].push(contractSymbol);
         } else {
-            revert("GameServerMetadata: It is not possible to change the existing position");
+            revert("AGEMetadata: It is not possible to change the existing position");
         }
     }
 

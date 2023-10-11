@@ -38,7 +38,7 @@ import "../interfaces/IERC1820Registry.sol";
 abstract contract BaseAnh is BaseUtility {
 
     // Address of the Main project token (ANH)
-    IANH public constant ANHYDRITE = IANH(0xB893A85D80e53Da458656105a54525198A88E419);
+    IANH public constant ANHYDRITE = IANH(0x4421d0890351811fc9B99fC8e580ca68046bf7F0);
 
     function _getAGE() internal view override virtual returns (address) {
         return ANHYDRITE.getAGEAddress();

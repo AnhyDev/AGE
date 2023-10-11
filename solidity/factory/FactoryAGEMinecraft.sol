@@ -48,11 +48,6 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
     mapping(address => address) public isDeploy;
 
     /**
-     * @dev Event emitted when a new module is created.
-     */
-    event AGEMinecraftCreated(address indexed moduleAddress, address indexed owner);
-
-    /**
      * @dev Modifier to restrict the deployment of modules.
      */
     modifier onlyAllowed(address ownerAddress) {
@@ -81,8 +76,6 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
         
         isDeploy[ownerAddress] = address(newModule);
         deployedModules.push(address(newModule));
-        
-        emit AGEMinecraftCreated(address(newModule), ownerAddress);
         
         return address(newModule);
     }
@@ -124,14 +117,6 @@ contract FactoryAGEMinecraft is IFactory, BaseAnh {
         }
     
         return result;
-    }
-
-    /**
-     * @notice A function to receive Ether payments.
-     * @dev Transfers received Ether to the implementation of the proxied contract.
-     */
-    receive() external payable {
-        payable(_getAGE()).transfer(msg.value);
     }
 
 

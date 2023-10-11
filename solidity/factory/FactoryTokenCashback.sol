@@ -55,17 +55,12 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
     mapping(address => address) public isDeploy;
 
     /**
-     * @dev Event emitted when a new module is created.
-     */
-    event TokenCashbackCreated(address indexed moduleAddress, address indexed server, address indexed owner);
-
-    /**
      * @dev Modifier to restrict the deployment of modules.
      */
     modifier onlyAllowed(address serverContractAddress) {
         (address main, address age) = _getMainAndAGE();
         require(!IProvider(main).isStopped(), "FactoryTokenCashback: Deploying is stopped");
-        require(msg.sender == age, "FactoryTokenCashback: Caller is not the implementation");
+        require(msg.sender == age, "FactoryTokenCashback: Caller is not the AGE contract");
         require(isDeploy[serverContractAddress] == address(0), "FactoryTokenCashback: This server has already deployed this module");
         _;
     }
@@ -76,16 +71,14 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
      * @param ownerAddress Address of the new owner of the deployed module.
      * @return Address of the deployed CashbackModule.
      */
-    function deployModule(string memory, string memory,
+    function deployModule(string memory name_, string memory symbol_,
             address serverContractAddress, address ownerAddress, string memory /*info*/)
                 public onlyAllowed(serverContractAddress) returns (address) {
         ownerAddress = ownerAddress != address(0) ? ownerAddress : msg.sender;
-        TokenCashback newModule = new TokenCashback(serverContractAddress, address(this), ownerAddress);
+        TokenCashback newModule = new TokenCashback(name_, symbol_, serverContractAddress, address(this), ownerAddress);
         
         isDeploy[serverContractAddress] = address(newModule);
-        deployedModules.push(serverContractAddress);
-        
-        emit TokenCashbackCreated(address(newModule), serverContractAddress, ownerAddress);
+        deployedModules.push(address(newModule));
         
         return address(newModule);
     }

@@ -45,10 +45,10 @@ abstract contract Modules is Ownable, BaseUtility {
         address moduleDeployedAddress;
     }
 
-    bytes32[] private _moduleList;
-    mapping(bytes32 => Module) private _modules;
+    bytes32[] internal _moduleList;
+    mapping(bytes32 => Module) internal _modules;
 
-    event DeployModule(address indexed contractAddress, string moduleName, uint256 moduleId);
+    event DeployModule(address indexed sender, address indexed server, address indexed contractAddress, string moduleName, uint256 moduleId);
 
 
     // Deploy a module
@@ -68,7 +68,7 @@ abstract contract Modules is Ownable, BaseUtility {
         _modules[hash] = module;
         _moduleList.push(hash);
         
-        emit DeployModule(contractAddress, name, moduleId);
+        emit DeployModule(msg.sender, address(this), contractAddress, name, moduleId);
     }
 
     // Remove a module
@@ -77,7 +77,10 @@ abstract contract Modules is Ownable, BaseUtility {
         bytes32 hash = _getModuleHash(moduleName, moduleType);
         require(_isModuleInstalled(hash), "Modules: Module not installed");
 
-        IAGEModule(_modules[hash].moduleDeployedAddress).dissociateAndCleanUpServerContract();
+        try IAGEModule(_modules[hash].moduleDeployedAddress).dissociateAndCleanUpServerContract() {
+            // якщо виклик пройшов успішно
+        } catch (bytes memory) {
+	    }
         _modules[hash] = Module("", IModuleType.ModuleType.Voting, "", address(0));
         for (uint i = 0; i < _moduleList.length; i++) {
             if (_moduleList[i] == hash) {
