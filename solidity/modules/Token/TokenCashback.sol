@@ -157,11 +157,14 @@ contract TokenCashback is IAGEModule, BaseAnh, FinanceManager, ModuleCashbackTok
 
         IServer.StructCashback[] memory cashbacks = _serverContract.getAllCashbacks();
         uint256 cashbacsDel = 0;
-        for (uint256 i = 0; i < cashbacks.length; i++) {
-            address module = cashbacks[i].contractCashbackAddress;
-            if (module == address(this)) {
-                _serverContract.deleteCashback(keccak256(abi.encodePacked(cashbacks[i].name)));
-                cashbacsDel++;
+        uint256 allCashbacks = cashbacks.length;
+        if (allCashbacks > 0) {
+            for (uint256 i = 0; i < allCashbacks; i++) {
+                address module = cashbacks[i].contractCashbackAddress;
+                if (module == address(this)) {
+                    _serverContract.deleteCashback(keccak256(abi.encodePacked(cashbacks[i].name)));
+                    cashbacsDel++;
+                }
             }
         }
         IFactory(moduleFactory).removeModule(address(_serverContract));

@@ -35,8 +35,6 @@ interface IAGEMinecraft {
 
 	function getServerDetails() external view returns (ServerInfo memory);
 
-    function setServerDetails(string calldata ipString, uint16 newServerPort, string calldata newServerName, string calldata newServerAddress) external;
-
     function setServerIpAddress(string calldata ipString) external;
 
     function getServerIpAddress() external view returns (string memory);

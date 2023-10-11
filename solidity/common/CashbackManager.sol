@@ -59,13 +59,6 @@ abstract contract CashbackManager is Ownable {
      */
     event CashbackIssued(bytes32 indexed cashbackName, address indexed cashbackAddress, uint256 amount, address indexed recipient);
 
-    /**
-     * @dev Emitted when the server contract is removed and address approvals are toggled.
-     * @param serverContractAddress Address of the removed server contract.
-     * @param numberOfModifications Number of address approvals that were toggled due to the removal of the server contract.
-     */
-    event ServerContractRemoved(address indexed serverContractAddress, uint256 numberOfModifications);
-
     constructor(address serverContract_, address factoryContractAddress) {
         _serverContract = IServer(serverContract_);
         moduleFactory = factoryContractAddress;

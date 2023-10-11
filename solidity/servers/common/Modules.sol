@@ -35,8 +35,9 @@ import "../../openzeppelin/contracts/access/Ownable.sol";
 import "../../common/BaseUtility.sol";
 import "../../interfaces/IAGEModule.sol";
 import "../../interfaces/IAGEMetadata.sol";
+import "../../interfaces/IServerModules.sol";
 
-abstract contract Modules is Ownable, BaseUtility {
+abstract contract Modules is IServerModules, Ownable, BaseUtility {
 
     struct Module {
         string moduleName;
@@ -72,24 +73,34 @@ abstract contract Modules is Ownable, BaseUtility {
     }
 
     // Remove a module
-    function removeModule(string memory moduleName, uint256 moduleId) external  onlyOwner {
-        IModuleType.ModuleType moduleType = IModuleType.ModuleType(moduleId);
-        bytes32 hash = _getModuleHash(moduleName, moduleType);
-        require(_isModuleInstalled(hash), "Modules: Module not installed");
+	function removeModule(string memory moduleName, uint256 moduleId) external  onlyOwner {
+	    IModuleType.ModuleType moduleType = IModuleType.ModuleType(moduleId);
+	    bytes32 hash = _getModuleHash(moduleName, moduleType);
+	    require(_isModuleInstalled(hash), "Modules: Module not installed");
 
-        try IAGEModule(_modules[hash].moduleDeployedAddress).dissociateAndCleanUpServerContract() {
-            // якщо виклик пройшов успішно
-        } catch (bytes memory) {
+	    address contractAddress = _modules[hash].moduleDeployedAddress;
+
+	    IAGEModule(contractAddress).dissociateAndCleanUpServerContract();
+
+	    _modules[hash] = Module("", IModuleType.ModuleType.Voting, "", address(0));
+	    for (uint i = 0; i < _moduleList.length; i++) {
+	        if (_moduleList[i] == hash) {
+	            _moduleList[i] = _moduleList[_moduleList.length - 1];
+	            _moduleList.pop();
+	            return;
+	        }
 	    }
-        _modules[hash] = Module("", IModuleType.ModuleType.Voting, "", address(0));
-        for (uint i = 0; i < _moduleList.length; i++) {
-            if (_moduleList[i] == hash) {
-                _moduleList[i] = _moduleList[_moduleList.length - 1];
-                _moduleList.pop();
-                return;
-            }
-        }
-    }
+
+	    emit DeployModule(msg.sender, address(this), contractAddress, moduleName, moduleId);
+	}
+
+	function getModuleAddresses() external view returns (address[] memory) {
+	    address[] memory addresses = new address[](_moduleList.length);
+	    for (uint256 i = 0; i < _moduleList.length; i++) {
+	        addresses[i] = _modules[_moduleList[i]].moduleDeployedAddress;
+	    }
+	    return addresses;
+	}
     
     // Get a module
     function getModuleAddress(string memory name, uint256 moduleId) external view returns (address) {
@@ -107,7 +118,7 @@ abstract contract Modules is Ownable, BaseUtility {
         return _isModuleInstalled(hash);
     }
     function _isModuleInstalled(bytes32 hash) internal view returns (bool) {
-       return bytes(_modules[hash].moduleName).length != 0;
+       return _modules[hash].moduleDeployedAddress != address(0);
     }
 
     // Get a hsah 

@@ -68,7 +68,7 @@ abstract contract CashbackStorage is Ownable {
         require(_supportsICashback(contractCashbackAddress), "CashbackStorage: Address does not comply with IModuleCashback interface");
         bytes32 key = keccak256(abi.encodePacked(name));
         
-        if (!isCashbackExists(key)) {
+        if (_cashback[key].contractCashbackAddress != address(0)) {
             _cashbackList.push(key);
         }
         
@@ -85,7 +85,7 @@ abstract contract CashbackStorage is Ownable {
      * @param key The key associated with the cashback entry to be deleted.
      */
     function deleteCashback(bytes32 key) external {
-        require(isCashbackExists(key), "CashbackStorage: Key does not exist.");
+        require(_cashback[key].contractCashbackAddress != address(0), "CashbackStorage: Key does not exist.");
 
         if (msg.sender == owner() || (msg.sender == _cashback[key].contractCashbackAddress)) {
             delete _cashback[key];
@@ -100,15 +100,6 @@ abstract contract CashbackStorage is Ownable {
         } else {
             revert("CashbackStorage: Caller does not have permission to delete this cashback");
         }
-    }
-
-    /**
-     * @dev Utility function to check existence of a cashback entry.
-     * @param source The key associated with the cashback entry.
-     * @return Returns true if the cashback entry exists, otherwise false.
-     */
-    function isCashbackExists(bytes32 source) internal view returns (bool) {
-        return _cashback[source].contractCashbackAddress != address(0);
     }
 
     /**

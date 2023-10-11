@@ -81,36 +81,6 @@ contract AGEMinecraft is
 	    });
 	    return info;
 	}
-
-    function setServerDetails(
-        string calldata newServerIpAddress, uint16 newServerPort, string calldata newServerName, string calldata newServerAddress) external override onlyOwner {
-            _setServerDetails(newServerIpAddress, newServerPort, newServerName, newServerAddress);
-    }
-
-    function _setServerDetails(
-        string calldata newServerIpAddress, uint16 newServerPort, string calldata newServerName, string calldata newDomainAddress) internal {
-        bool validIP = _isValidIPv4String(newServerIpAddress);
-        bool validPort = _isValidMinecraftPort(newServerPort);
-        bool validServerName = bytes(newServerName).length != 0;
-        bool validServerAddress = _isValidDomain(newDomainAddress);
-        require(validIP || validPort || validServerName || validServerAddress, "AGEMinecraft: At least one valid parameter is required");
-
-        if (validIP) {
-            _serverIpAddress = newServerIpAddress;
-        }
-
-        if (newServerPort != 0) {
-            _serverPort = newServerPort;
-        }
-
-        if (validServerName) {
-            _serverName = newServerName;
-        }
-
-        if (validServerAddress) {
-            _serverAddress = newDomainAddress;
-        }
-    }
     
     function setServerIpAddress(string calldata newServerIpAddress) external override onlyOwner {
         require(_isValidIPv4String(newServerIpAddress), "AGEMinecraft: Invalid IP address");
