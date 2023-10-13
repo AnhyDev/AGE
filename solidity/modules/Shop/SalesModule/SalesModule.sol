@@ -49,8 +49,15 @@ contract SalesModule is IAGEModule, IERC165, SalesProcessing, FinanceManager, ER
     ModuleType private constant moduleType = ModuleType.Shop;
     string private constant moduleTypeString = "Shop";
 
-    constructor(address serverContract_, address factoryContractAddress, address sender)
-        CashbackManager(serverContract_, factoryContractAddress)
+    /**
+     * @dev Emitted when the server contract is removed and address approvals are toggled.
+     * @param serverContractAddress Address of the removed server contract.
+     * @param numberOfModifications Number of address approvals that were toggled due to the removal of the server contract.
+     */
+    event ServerContractRemoved(address indexed serverContractAddress, uint256 numberOfModifications);
+
+    constructor(address serverContract, address factoryContractAddress, address sender)
+        CashbackManager(serverContract, factoryContractAddress)
             Ownable(sender) {
 
         erc1820Registry.setInterfaceImplementer(address(this), keccak256("IAGEModule"), address(this));
@@ -96,7 +103,7 @@ contract SalesModule is IAGEModule, IERC165, SalesProcessing, FinanceManager, ER
      * @return The address of the factory contract that deployed this contract.
      */
     function getModuleFactory() external view override returns (address) {
-        return moduleFactory;
+        return _moduleFactory;
     }
 
     /**
@@ -127,7 +134,7 @@ contract SalesModule is IAGEModule, IERC165, SalesProcessing, FinanceManager, ER
                 modifications++;
             }
         }
-        IFactory(moduleFactory).removeModule(address(_serverContract));
+        IFactory(_moduleFactory).removeModule(address(_serverContract));
         emit ServerContractRemoved(address(_serverContract), modifications);
         delete _serverContract;
     }

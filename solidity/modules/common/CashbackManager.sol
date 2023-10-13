@@ -46,7 +46,7 @@ abstract contract CashbackManager is Ownable {
     // @notice IServer contract to interact with.
     IServer internal _serverContract;
 
-    address internal moduleFactory;
+    address internal _moduleFactory;
 
     mapping(bytes32 => uint256) internal serviceExist;
 
@@ -61,7 +61,7 @@ abstract contract CashbackManager is Ownable {
 
     constructor(address serverContract_, address factoryContractAddress) {
         _serverContract = IServer(serverContract_);
-        moduleFactory = factoryContractAddress;
+        _moduleFactory = factoryContractAddress;
     }
 
     /**

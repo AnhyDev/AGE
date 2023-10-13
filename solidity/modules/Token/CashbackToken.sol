@@ -40,7 +40,7 @@ import "../../interfaces/IFactory.sol";
 import "../../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 
-contract TokenCashback is IAGEModule, BaseAnh, FinanceManager, ModuleCashbackTokens {
+contract CashbackToken is IAGEModule, BaseAnh, FinanceManager, ModuleCashbackTokens {
 
     string private constant moduleName = "TokenCashback";
     ModuleType private constant moduleType = ModuleType.Token;

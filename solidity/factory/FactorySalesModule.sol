@@ -76,19 +76,14 @@ contract FactorySalesModule is IFactory, BaseAnh {
      * @param ownerAddress Address of the new owner of the deployed module.
      * @return Address of the deployed SalesModule.
      */
-    function deployModule(string memory, string memory,
+    function deployModule(string memory /*name_*/, string memory /*symbol_*/,
             address serverContractAddress, address ownerAddress, string memory /*info*/)
                 external onlyAllowed(serverContractAddress) returns (address) {
         ownerAddress = ownerAddress != address(0) ? ownerAddress : msg.sender;
         SalesModule newModule = new SalesModule(serverContractAddress, address(this), ownerAddress);
-        if (ownerAddress != address(0)) {
-            newModule.transferOwnership(ownerAddress);
-        }
         
         isDeploy[serverContractAddress] = address(newModule);
-        deployedModules.push(serverContractAddress);
-        
-        emit SalesModuleCreated(address(newModule), serverContractAddress, ownerAddress);
+        deployedModules.push(address(newModule));
         
         return address(newModule);
     }
