@@ -33,7 +33,7 @@ pragma solidity ^0.8.19;
 
 import "../../interfaces/IAGEModule.sol";
 import "../../common/BaseAnh.sol";
-import "../../common/ModuleCashbackTokens.sol";
+import "../common/ModuleCashbackTokens.sol";
 import "../../common/FinanceManager.sol";
 import "../../interfaces/IServer.sol";
 import "../../interfaces/IFactory.sol";

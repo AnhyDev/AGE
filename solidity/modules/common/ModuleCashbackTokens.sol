@@ -27,15 +27,15 @@
  * with the software or the use or other dealings in the software.
  */
  
-// @filepath Repository Location: [solidity/common/ModuleCashbackTokens.sol]
+// @filepath Repository Location: [solidity/modules/ModuleCashbackTokens.sol]
 
 pragma solidity ^0.8.19;
 
-import "../openzeppelin/contracts/interfaces/IERC165.sol";
-import "../openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/IServer.sol";
-import "../interfaces/IModuleCashback.sol";
-import "../common/ERC20ReceiverToken.sol";
+import "../../openzeppelin/contracts/interfaces/IERC165.sol";
+import "../../openzeppelin/contracts/access/Ownable.sol";
+import "../../interfaces/IServer.sol";
+import "../../interfaces/IModuleCashback.sol";
+import "../../common/ERC20ReceiverToken.sol";
 
 /**
  * @title Cashback
