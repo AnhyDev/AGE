@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/modules/Token/TokenCashback.sol]
+// @filepath Repository Location: [solidity/modules/Voting/ServerUpvote.sol]
 
 pragma solidity ^0.8.19;
 
@@ -51,7 +51,7 @@ contract ServerUpvote is IAGEModule {
      * @param voter Address of the voter.
      * @param numberOfvotes The number of votes cast for the server.
      */
-    event ServerContractRemoved(address indexed serverContractAddress, address indexed voter, uint256 numberOfvotes);
+    event VoteForServer(address indexed serverContractAddress, address indexed voter, uint256 indexed numberOfvotes);
 
     constructor() {}
 

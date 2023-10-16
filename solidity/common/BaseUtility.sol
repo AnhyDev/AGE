@@ -61,7 +61,7 @@ abstract contract BaseUtility {
         return IProvider(_getMain());
     }
 
-    function _getMainAndAGE() internal view virtual returns (address, address) {
+    function _getMainAndAGE() internal view returns (address, address) {
         return (_getMain(), _getAGE());
     }
 }

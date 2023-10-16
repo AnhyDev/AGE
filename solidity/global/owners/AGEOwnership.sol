@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/main/AGEMainOwnership.sol]
+// @filepath Repository Location: [solidity/global/owners/AGEMainOwnership.sol]
 
 pragma solidity ^0.8.19;
 
@@ -66,7 +66,7 @@ import "./ERC20Receiver.sol";
  *      Events:
  *      - VoluntarilyExit: Emitted when an owner voluntarily exits.
  */
-contract AGEMainOwnership is
+contract AGEOwnership is
     Provider,
     VotingStopped,
     VotingNeededForOwnership,

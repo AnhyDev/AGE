@@ -33,7 +33,7 @@ pragma solidity ^0.8.19;
 
 import "../interfaces/IFactory.sol";
 import "../common/BaseAnh.sol";
-import "../modules/Token/TokenCashback.sol";
+import "../modules/Token/CashbackToken.sol";
 
 
 /**
@@ -42,7 +42,7 @@ import "../modules/Token/TokenCashback.sol";
  *      TokenCashback contracts. It allows for the dynamic deployment of new modules and their 
  *      removal when necessary, coordinating storage and management of the contracts.
  */
-contract FactoryTokenCashback is IFactory, BaseAnh {
+contract FactoryCashbackToken is IFactory, BaseAnh {
 
     /**
      * @dev List of addresses of deployed modules.
@@ -59,9 +59,9 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
      */
     modifier onlyAllowed(address serverContractAddress) {
         (address main, address age) = _getMainAndAGE();
-        require(!IProvider(main).isStopped(), "FactoryTokenCashback: Deploying is stopped");
-        require(msg.sender == age, "FactoryTokenCashback: Caller is not the AGE contract");
-        require(isDeploy[serverContractAddress] == address(0), "FactoryTokenCashback: This server has already deployed this module");
+        require(!IProvider(main).isStopped(), "FactoryCashbackToken: Deploying is stopped");
+        require(msg.sender == age, "FactoryCashbackToken: Caller is not the AGE contract");
+        require(isDeploy[serverContractAddress] == address(0), "FactoryCashbackToken: This server has already deployed this module");
         _;
     }
 
@@ -75,7 +75,7 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
             address serverContractAddress, address ownerAddress, string memory /*info*/)
                 public onlyAllowed(serverContractAddress) returns (address) {
         ownerAddress = ownerAddress != address(0) ? ownerAddress : msg.sender;
-        TokenCashback newModule = new TokenCashback(name_, symbol_, serverContractAddress, address(this), ownerAddress);
+        CashbackToken newModule = new CashbackToken(name_, symbol_, serverContractAddress, address(this), ownerAddress);
         
         isDeploy[serverContractAddress] = address(newModule);
         deployedModules.push(address(newModule));
@@ -88,7 +88,7 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
      * @param serverContractAddress Address of the associated server contract.
      */
     function removeModule(address serverContractAddress) external {
-        require(msg.sender == isDeploy[serverContractAddress], "FactoryTokenCashback: Module not deployed for this server");
+        require(msg.sender == isDeploy[serverContractAddress], "FactoryCashbackToken: Module not deployed for this server");
 
         delete isDeploy[serverContractAddress]; 
     }
@@ -116,7 +116,7 @@ contract FactoryTokenCashback is IFactory, BaseAnh {
      * @return Array of addresses of deployed modules in the specified range.
      */
     function getDeployedModules(uint256 startIndex, uint256 endIndex) public view returns (address[] memory) {
-        require(startIndex < deployedModules.length, "FactoryTokenCashback: Start index out of bounds");
+        require(startIndex < deployedModules.length, "FactoryCashbackToken: Start index out of bounds");
     
         if(endIndex >= deployedModules.length) {
             endIndex = deployedModules.length - 1;

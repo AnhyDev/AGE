@@ -197,7 +197,7 @@ abstract contract ERC20ReceiverToken is IERC20Receiver, ERC20, ERC20Burnable, Ba
     }
 
     /*
-     * Public View Function: check1820Registry
+     * External View Function: check1820Registry
      * - Purpose: External interface for checking if a contract implements the IERC20Receiver interface via the ERC1820 registry.
      * - Arguments:
      *   - contractAddress: The address of the contract to check.

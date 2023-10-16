@@ -27,7 +27,7 @@
  * with the software or the use or other dealings in the software.
  */
 
-// @filepath Repository Location: [solidity/global/main/Provider.sol]
+// @filepath Repository Location: [solidity/global/owners/Provider.sol]
 
 pragma solidity ^0.8.19;
 
