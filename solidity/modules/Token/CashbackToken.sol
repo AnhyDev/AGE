@@ -33,14 +33,14 @@ pragma solidity ^0.8.19;
 
 import "../../interfaces/IAGEModule.sol";
 import "../../common/BaseAnh.sol";
-import "../common/ModuleCashbackTokens.sol";
+import "../common/CashbackTokenManager.sol";
 import "../../common/FinanceManager.sol";
 import "../../interfaces/IServer.sol";
 import "../../interfaces/IFactory.sol";
 import "../../openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 
-contract CashbackToken is IAGEModule, BaseAnh, FinanceManager, ModuleCashbackTokens {
+contract CashbackToken is IAGEModule, BaseAnh, FinanceManager, CashbackTokenManager {
 
     string private constant moduleName = "TokenCashback";
     ModuleType private constant moduleType = ModuleType.Token;

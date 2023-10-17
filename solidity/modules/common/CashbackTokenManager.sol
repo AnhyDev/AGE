@@ -42,7 +42,7 @@ import "../../common/ERC20ReceiverToken.sol";
  * @dev This is an abstract contract implementing base functionality for a Cashback system,
  * utilizing an ERC721 based server contract represented by the IServer interface.
  */
-abstract contract ModuleCashbackTokens is IModuleCashback, ERC20ReceiverToken, Ownable {
+abstract contract CashbackTokenManager is IModuleCashback, ERC20ReceiverToken, Ownable {
 
 	IServer internal _serverContract;
     
