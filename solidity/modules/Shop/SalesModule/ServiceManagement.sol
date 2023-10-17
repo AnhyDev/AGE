@@ -152,19 +152,19 @@ abstract contract ServiceManagement is ServiceManager {
     /**
      * @dev Internal function to add a service.
      * @param serviceId The ID of the service type.
-     * @param moduleName Name of the module.
+     * @param serviceName Name of the module.
      * @param payAddress The address to pay to.
      * @param payAmount Amount to pay for the service.
      * @param duration The duration of the service.
      * @param tokenAddress The address of the token contract.
      * @param number The number of tokens.
      */
-    function _addService(uint256 serviceId, string memory moduleName, address payAddress, uint256 payAmount, uint256 duration,
+    function _addService(uint256 serviceId, string memory serviceName, address payAddress, uint256 payAmount, uint256 duration,
       address tokenAddress, uint256 number) private {
-        bytes32 hash = keccak256(abi.encodePacked(moduleName));
+        bytes32 hash = _addCashback(serviceName);
         services[serviceId].push(Service({
             hash: hash,
-            name: moduleName,
+            name: serviceName,
             price: Price({
                 tokenAddress: payAddress,
                 amount: payAmount
@@ -174,7 +174,6 @@ abstract contract ServiceManagement is ServiceManager {
             tokenAddress: tokenAddress,
             number: number
         }));
-        serviceExist[hash] = serviceId++;
     }
 
     /**
@@ -183,18 +182,18 @@ abstract contract ServiceManagement is ServiceManager {
      * @param serviceName Name of the service.
      */
     function _removeServiceFromList(uint256 serviceId, string memory serviceName) internal override {  
-        bytes32 hash = keccak256(abi.encodePacked(serviceName));   
+        bytes32 hash = keccak256(abi.encodePacked(serviceName));
+        _removeCashback(hash);
         // Find the service index and remove it
         for (uint256 i = 0; i < services[serviceId].length; i++) {
             if (keccak256(abi.encodePacked(services[serviceId][i].name)) == hash) {
-                require(i < services[serviceId].length, "Index out of bounds");
+                require(i < services[serviceId].length, "ServiceManagement: Index out of bounds");
 
                 // Move the last element to the spot at index
                 services[serviceId][i] = services[serviceId][services[serviceId].length - 1];
         
                 // Remove the last element
                 services[serviceId].pop();
-                serviceExist[hash] = 0;
                 break;
             }
         }

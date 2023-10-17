@@ -38,9 +38,11 @@ import "../../interfaces/IModuleCashback.sol";
 import "../../common/ERC20ReceiverToken.sol";
 
 /**
- * @title Cashback
- * @dev This is an abstract contract implementing base functionality for a Cashback system,
- * utilizing an ERC721 based server contract represented by the IServer interface.
+ * @title CashbackTokenManager
+ * @dev This contract serves as a manager for issuing tokens as part of a cashback system. 
+ * Only approved addresses are permitted to request the issuance of tokens. 
+ * The owner of the contract can manage these approvals. 
+ * This is an abstract contract, and the specific token issuance logic should be defined in derived contracts.
  */
 abstract contract CashbackTokenManager is IModuleCashback, ERC20ReceiverToken, Ownable {
 
@@ -63,7 +65,7 @@ abstract contract CashbackTokenManager is IModuleCashback, ERC20ReceiverToken, O
      * @param source The bytes32 representing the source of cashback.
      */
     function issueTokens(address _recipient, bytes32 source) external override {
-        require(_isAddressApproved(msg.sender), "Cashback: Address not approved to request tokens");
+        require(_isAddressApproved(msg.sender), "CashbackTokenManager: Address not approved to request tokens");
         (/*address moduleAddress*/, uint256 amount) = _serverContract.getCashback(source);
         _giveTokens(_recipient, amount);
     }
@@ -99,7 +101,7 @@ abstract contract CashbackTokenManager is IModuleCashback, ERC20ReceiverToken, O
             || (address_ == msg.sender && _approvedTokenRequestAddresses[address_]) && !status) {
             _approvedTokenRequestAddresses[address_] = status;
         } else {
-            revert("Cashback: You do not have permission to change the permission");
+            revert("CashbackTokenManager: You do not have permission to change the permission");
         }
         
     }

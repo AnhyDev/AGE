@@ -55,7 +55,7 @@ contract CashbackToken is IAGEModule, BaseAnh, FinanceManager, CashbackTokenMana
     event ServerContractRemoved(address indexed serverContractAddress, uint256 numberOfModifications, uint256 numberRemoveCashbacs);
    
     constructor(string memory name_, string memory symbol_, address serverAddress, address factoryContractAddress, address sender)
-        ModuleCashbackTokens(serverAddress, factoryContractAddress)
+        CashbackTokenManager(serverAddress, factoryContractAddress)
             ERC20ReceiverToken(string(abi.encodePacked(name_, " TokenCashback")),
                 string(abi.encodePacked(symbol_, "TC")))
                     Ownable(sender) {
@@ -175,9 +175,9 @@ contract CashbackToken is IAGEModule, BaseAnh, FinanceManager, CashbackTokenMana
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override(ModuleCashbackTokens) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(CashbackTokenManager) returns (bool) {
         return interfaceId == type(IAGEModule).interfaceId ||
-           ModuleCashbackTokens.supportsInterface(interfaceId) ||
+           CashbackTokenManager.supportsInterface(interfaceId) ||
            interfaceId == type(IERC721Receiver).interfaceId;
     }
 

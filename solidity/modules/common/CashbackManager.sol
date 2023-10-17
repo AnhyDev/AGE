@@ -37,9 +37,11 @@ import "../../interfaces/IFactory.sol";
 import "../../interfaces/IModuleCashback.sol";
 
 /**
- * @title ModuleCashback
- * @dev This abstract contract provides a template for implementing
- * module-specific cashback logic in collaboration with an IServer contract.
+ * @title CashbackManager
+ * @dev This abstract contract manages the retrieval and issuance of cashback tokens
+ * in collaboration with an IServer contract. The contract can track the existence of services,
+ * obtain cashback details for a specific module, and issue cashback tokens to recipients. 
+ * Derived contracts should specify the cashback issuance logic for their specific use case.
  */
 abstract contract CashbackManager is Ownable {
 
@@ -48,7 +50,8 @@ abstract contract CashbackManager is Ownable {
 
     address internal _moduleFactory;
 
-    mapping(bytes32 => uint256) internal serviceExist;
+    mapping(bytes32 => string) internal _cashbacks;
+    bytes32[] internal _cashbackList;
 
     /**
      * @dev Emitted when cashback is successfully issued.
@@ -67,34 +70,58 @@ abstract contract CashbackManager is Ownable {
     /**
      * @dev Retrieves the cashback details for this module using a given key.
      * If the service associated with the key doesn't exist or the cashback address is not set, it returns a zero amount.
-     * @param key The key representing a service to use for retrieving the cashback value and address.
+     * @param cashbackName The key representing a service to use for retrieving the cashback value and address.
      * @return ICashback The ICashback interface of the cashback contract.
      * @return uint256 The amount of cashback, returns 0 if service doesn't exist or cashback address is not set.
      */
-    function getCashbackForThisModule(string memory key) external view returns (IModuleCashback, uint256) {
-        bytes32 hash = keccak256(abi.encodePacked(key));
+    function getCashbackForThisModule(string memory cashbackName) external view returns (IModuleCashback, uint256) {
+        bytes32 hash = keccak256(abi.encodePacked(cashbackName));
         (address cashbackAddress, uint256 cashbackAmount) = _getCashback(hash);
-        if (cashbackAddress == address(0) || serviceExist[hash] == 0) {
+        if (cashbackAddress == address(0)) {
             cashbackAmount = 0;
         }
         return (IModuleCashback(cashbackAddress), cashbackAmount);
     }
 
-    /**
-     * @dev Internal function to get the cashback details from the server contract.
-     * @param source The bytes32 key representing a service.
-     * @return address The address of the cashback contract.
-     * @return uint256 The amount of cashback.
-     */
+	/**
+	 * @dev Retrieves the full list of cashbacks available in this manager.
+	 * @return An array of strings representing the available cashbacks.
+	 */
+	function getCashbacks() public view returns (string[] memory) {
+	    string[] memory cashbackValues = new string[](_cashbackList.length);
+	    
+	    for (uint i = 0; i < _cashbackList.length; i++) {
+	        cashbackValues[i] = _cashbacks[_cashbackList[i]];
+	    }
+
+	    return cashbackValues;
+	}
+
+	/**
+	 * @dev Checks if a given cashback hash is present in the manager.
+	 * @param hash The hash to be checked.
+	 * @return A boolean indicating the presence of the cashback.
+	 */
+	function isCashbackPresent(bytes32 hash) external view returns (bool) {
+	    return _isCashbackPresent(hash);
+	}
+
+	/**
+	 * @dev Retrieves the cashback details from the server contract using a given source.
+	 * @param source The hash key representing a service.
+	 * @return address The contract address responsible for the cashback.
+	 * @return uint256 The amount of the cashback to be given.
+	 */
     function _getCashback(bytes32 source) internal view returns (address, uint256) {
         return _serverContract.getCashback(source);
     }
 
-    /**
-     * @dev Issues the cashback tokens to a recipient if the cashback details are valid and exist.
-     * @param recipient The address of the recipient to receive the cashback tokens.
-     * @param source The bytes32 key representing a service.
-     */
+	/**
+	 * @dev Provides cashback to the recipient using the details associated with a given source.
+	 * If valid details are present, it triggers the issuance of cashback tokens to the recipient.
+	 * @param recipient The address intended to receive the cashback.
+	 * @param source The hash key representing a service to retrieve cashback details.
+	 */
     function _giveCashback(address recipient, bytes32 source) internal {
         (address cashbackAddress, uint256 cashbackAmount) = _getCashback(source);
         if (cashbackAddress != address(0) && cashbackAmount > 0) {
@@ -104,4 +131,51 @@ abstract contract CashbackManager is Ownable {
             emit CashbackIssued(source, cashbackAddress, cashbackAmount, recipient);
         }
     }
+
+	/**
+	 * @dev Checks internally if a given cashback hash exists.
+	 * @param hash The hash to be checked.
+	 * @return A boolean indicating the presence of the cashback.
+	 */
+	function _isCashbackPresent(bytes32 hash) internal view returns (bool) {
+	    return bytes(_cashbacks[hash]).length != 0;
+	}
+	
+	/**
+	 * @dev Adds a new cashback to the manager using the provided name.
+	 * It ensures the cashback doesn't already exist before adding.
+	 * @param cashbackName The name of the new cashback to be added.
+	 * @return A bytes32 hash representing the added cashback.
+	 */
+	function _addCashback(string memory cashbackName) internal returns (bytes32) {
+	    bytes32 hash = keccak256(abi.encodePacked(cashbackName));
+	    
+	    require(!_isCashbackPresent(hash), "CashbackManager: Cashback already exists");
+
+	    _cashbacks[hash] = cashbackName;
+	    _cashbackList.push(hash);
+        return hash;
+	}
+
+	/**
+	 * @dev Removes a cashback from the manager using a given hash.
+	 * It ensures the cashback exists before removing.
+	 * @param hash The hash representing the cashback to be removed.
+	 */
+	function _removeCashback(bytes32 hash) internal {
+	    
+	    require(_isCashbackPresent(hash), "CashbackManager: Cashback does not exist");
+
+	    // Remove from mapping
+	    delete _cashbacks[hash];
+
+	    // Remove from array
+	    for (uint256 i = 0; i < _cashbackList.length; i++) {
+	        if (_cashbackList[i] == hash) {
+	            _cashbackList[i] = _cashbackList[_cashbackList.length - 1];
+	            _cashbackList.pop();
+	            break;
+	        }
+	    }
+	}
 }

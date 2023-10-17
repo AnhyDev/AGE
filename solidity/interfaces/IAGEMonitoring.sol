@@ -38,7 +38,7 @@ interface IAGEMonitoring {
  function removeServerAddress(address serverAddress) external;
  
  // Voting mechanism handlers
- function voteForServer(address voterAddress, address serverAddress) external;
+ function voteForServerWith1(address voterAddress, address serverAddress) external;
  function voteForServerWith10(address voterAddress, address serverAddress) external;
  function voteForServerWith100(address voterAddress, address serverAddress) external;
  function voteForServerWith1000(address voterAddress, address serverAddress) external;

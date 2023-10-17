@@ -167,7 +167,7 @@ contract AGEMonitoring is IAGEMonitoring,
      * These functions are responsible for handling 
      * all operations related to the voting process.
      */ 
-    function voteForServer(address voterAddress, address serverAddress) external override notStopped {
+    function voteForServerWith1(address voterAddress, address serverAddress) external override notStopped {
         voterAddress = _getVoterAddress(voterAddress);
         _vote(voterAddress, serverAddress, 1, PERCENTAGE_1_VOTES);
     }
