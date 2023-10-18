@@ -48,7 +48,7 @@ abstract contract CashbackStorage is Ownable {
      */
     struct StructCashback {
         string name;  // Name of the cashback entry
-        address contractCashbackAddress;  // Associated contract address
+        address cashbackToken;
         uint256 price;  // Price linked with the cashback entry
     }
     
@@ -61,22 +61,25 @@ abstract contract CashbackStorage is Ownable {
     /**
      * @dev Allows owner to create or update a cashback entry.
      * @param name Name of the cashback entry.
-     * @param contractCashbackAddress Address of the linked contract.
+     * @param cashbackToken Address of the linked contract.
      * @param price Price associated with the cashback entry.
      */
-    function upsertCashback(string memory name, address contractCashbackAddress, uint256 price) external onlyOwner {
-        require(_supportsICashback(contractCashbackAddress), "CashbackStorage: Address does not comply with IModuleCashback interface");
+    function upsertCashback(string memory name, address cashbackToken, address cashbackIssuer, uint256 price) external onlyOwner {
+        require(_supportsICashback(cashbackToken), "CashbackStorage: Address does not comply with IModuleCashback interface");
         bytes32 key = keccak256(abi.encodePacked(name));
         
-        if (_cashback[key].contractCashbackAddress != address(0)) {
+        if (_cashback[key].cashbackToken == address(0)) {
             _cashbackList.push(key);
         }
         
-        // додати автоматичне встановлення дозволу модулю отримувати кешбек у контракті кешбеку
+        IModuleCashback moduleCashback = IModuleCashback(cashbackToken);
+        if (!moduleCashback.isAddressApproved(cashbackIssuer)) {
+            moduleCashback.toggleAddressApproval(cashbackIssuer, true);
+        }
         
         StructCashback storage cb = _cashback[key];
         cb.name = name;
-        cb.contractCashbackAddress = contractCashbackAddress;
+        cb.cashbackToken = cashbackToken;
         cb.price = price;
     }
 
@@ -85,9 +88,9 @@ abstract contract CashbackStorage is Ownable {
      * @param key The key associated with the cashback entry to be deleted.
      */
     function deleteCashback(bytes32 key) external {
-        require(_cashback[key].contractCashbackAddress != address(0), "CashbackStorage: Key does not exist.");
+        require(_cashback[key].cashbackToken != address(0), "CashbackStorage: Key does not exist.");
 
-        if (msg.sender == owner() || (msg.sender == _cashback[key].contractCashbackAddress)) {
+        if (msg.sender == owner() || (msg.sender == _cashback[key].cashbackToken)) {
             delete _cashback[key];
         
             for (uint256 i = 0; i < _cashbackList.length; i++) {
@@ -126,7 +129,7 @@ abstract contract CashbackStorage is Ownable {
      * @return Address of the linked contract and the associated price.
      */
     function _getCashback(bytes32 source) internal view returns (address, uint256) {
-        return (_cashback[source].contractCashbackAddress, _cashback[source].price);
+        return (_cashback[source].cashbackToken, _cashback[source].price);
     }
 
     /**

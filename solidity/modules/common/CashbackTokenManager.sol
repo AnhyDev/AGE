@@ -33,8 +33,9 @@ pragma solidity ^0.8.19;
 
 import "../../openzeppelin/contracts/interfaces/IERC165.sol";
 import "../../openzeppelin/contracts/access/Ownable.sol";
-import "../../interfaces/IServer.sol";
 import "../../interfaces/IModuleCashback.sol";
+import "../../interfaces/IAGEModule.sol";
+import "../../interfaces/IServer.sol";
 import "../../common/ERC20ReceiverToken.sol";
 
 /**
@@ -83,21 +84,20 @@ abstract contract CashbackTokenManager is IModuleCashback, ERC20ReceiverToken, O
     }
 
     /**
-     * @dev Toggles the approval status for a specific address.
-     * This can be called by the contract owner to approve or disapprove an address,
-     * or by an already approved address to disapprove itself.
+     * @dev Toggles the approval status for a specific address. This function allows:
+     * - The contract owner OR the server contract to change permissions, but only for addresses that are associated with a module in the module list.
+     * - An already approved address to revoke its own approval (but it cannot re-approve itself).
      * 
      * @param address_ The address for which to toggle the approval status.
-     * @param status The desired approval status.
+     * @param status The desired approval status (true for approval, false for disapproval).
      *
      * Requirements:
-     * - The caller must be the contract owner, or the address itself wishing to disapprove its own approval.
-     * - If the caller is the address itself, it can only disapprove its approval (cannot approve itself).
+     * - If the caller is the address itself, it can only revoke its own approval (it cannot re-approve itself).
      * 
-     * Emits a revert if the caller doesn't have the right permissions to change the approval.
+     * Throws an error if the caller doesn't have the appropriate permissions to change the approval.
      */
     function toggleAddressApproval(address address_, bool status) external override {
-        if (msg.sender == owner()
+        if (((msg.sender == owner() || msg.sender == address(_serverContract)) && _isAddressInModuleList(IAGEModule(address_).getModuleFactory()))
             || (address_ == msg.sender && _approvedTokenRequestAddresses[address_]) && !status) {
             _approvedTokenRequestAddresses[address_] = status;
         } else {
@@ -107,8 +107,23 @@ abstract contract CashbackTokenManager is IModuleCashback, ERC20ReceiverToken, O
     }
 
     /**
-     * @dev Converts a string to a bytes32 hash, used as a key for cashback values.
-     * @param source The source string to convert.
+     * @dev Internal function that checks whether a given address is among the modules.
+     * @param targetAddress Address to check.
+     * @return bool Whether the address is in the module list.
+     */
+    function _isAddressInModuleList(address targetAddress) internal view returns (bool) {
+        address[] memory moduleAddresses = _serverContract.getModuleAddresses();
+        for (uint256 i = 0; i < moduleAddresses.length; i++) {
+            if (moduleAddresses[i] == targetAddress) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @dev Converts a string into a bytes32 hash, which is used as a key for cashback values.
+     * @param source Input string to convert.
      * @return result The resulting bytes32 hash.
      */
     function _stringToBytes32(string memory source) internal pure returns (bytes32 result) {
