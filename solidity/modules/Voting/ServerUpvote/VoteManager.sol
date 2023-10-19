@@ -33,11 +33,22 @@ pragma solidity ^0.8.19;
 
 import "../../../openzeppelin/contracts/interfaces/IERC20.sol";
 import "../../../openzeppelin/contracts/interfaces/IERC721.sol";
-import "../../interfaces/IVoting.sol";
-import "../common/CashbackManager.sol";
+import "../../../interfaces/IAGEMonitoring.sol";
+import "../../common/CashbackManager.sol";
+import "../../../interfaces/IVoting.sol";
+import "../../../common/BaseAnh.sol";
 
-abstract contract VoteManager is CashbackManager, IVoting {
+/**
+ * @title VoteManager
+ * @dev This contract allows users to vote for servers on a monitoring platform.
+ * Users can cast votes using varying amounts such as 1, 10, 100, and so forth.
+ * This contract extends functionalities from `CashbackManager`, `IVoting`, and `BaseAnh`.
+ */
+abstract contract VoteManager is CashbackManager, IVoting, BaseAnh {
 
+    /**
+     * @dev Constructor that initializes the cashback list for voting.
+     */
 	constructor() {
 	    string[7] memory initialCashbacks = [
 	        "voteForServerWith1",
@@ -54,18 +65,67 @@ abstract contract VoteManager is CashbackManager, IVoting {
 	    }
 	}
 
+    /**
+     * @dev Allows a user to vote for a server using 1 vote.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith1(address serverAddress) external override {
+        _getMonitoring().voteForServerWith1(msg.sender, serverAddress);
     }
+
+    /**
+     * @dev Allows a user to vote for a server using 10 votes.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith10(address serverAddress) external override {
+        _getMonitoring().voteForServerWith10(msg.sender, serverAddress);
     }
+
+    /**
+     * @dev Allows a user to vote for a server using 100 votes.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith100(address serverAddress) external override {
+        _getMonitoring().voteForServerWith100(msg.sender, serverAddress);
     }
+
+    /**
+     * @dev Allows a user to vote for a server using 1,000 votes.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith1000(address serverAddress) external override {
+        _getMonitoring().voteForServerWith1000(msg.sender, serverAddress);
     }
+
+    /**
+     * @dev Allows a user to vote for a server using 10,000 votes.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith10000(address serverAddress) external override {
+        _getMonitoring().voteForServerWith10000(msg.sender, serverAddress);
     }
+
+    /**
+     * @dev Allows a user to vote for a server using 100,000 votes.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith100000(address serverAddress) external override {
+        _getMonitoring().voteForServerWith100000(msg.sender, serverAddress);
     }
+
+    /**
+     * @dev Allows a user to vote for a server using 1,000,000 votes.
+     * @param serverAddress Address of the server being voted for.
+     */
     function voteForServerWith1000000(address serverAddress) external override {
+        _getMonitoring().voteForServerWith1000000(msg.sender, serverAddress);
+    }
+
+    /**
+     * @dev Returns the monitoring interface for interacting with it.
+     * @return The monitoring interface.
+     */
+    function _getMonitoring() internal view returns (IAGEMonitoring) {
+        return IAGEMonitoring(_getFullAGEContract().getMonitoring().addr);
     }
 }

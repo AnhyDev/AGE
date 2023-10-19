@@ -32,9 +32,9 @@
 pragma solidity ^0.8.19;
 
 import "../../openzeppelin/contracts/access/Ownable.sol";
-import "../../interfaces/IServer.sol";
-import "../../interfaces/IFactory.sol";
 import "../../interfaces/IModuleCashback.sol";
+import "../../interfaces/IFactory.sol";
+import "../../interfaces/IServer.sol";
 
 /**
  * @title CashbackManager

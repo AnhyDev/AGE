@@ -33,6 +33,7 @@ pragma solidity ^0.8.19;
 
 import "./IAGE.sol";
 import "./IGameData.sol";
+import "./IMonitoring.sol";
 import "./IModuleManager.sol";
 
-interface IFullAGE is IAGE, IGameData, IModuleManager {}
+interface IFullAGE is IAGE, IGameData, IModuleManager, IMonitoring {}

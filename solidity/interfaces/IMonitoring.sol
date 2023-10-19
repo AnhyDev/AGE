@@ -32,15 +32,35 @@
 pragma solidity ^0.8.19;
 
 interface IMonitoring {
-	
-    function addServerAddress(uint256 gameId, address serverAddress) external;
-    
-    function voteForServer(address voterAddress, address serverAddress) external;
-    
-    function getServerVotes(address serverAddress) external view returns (uint256);
-    
-    function isServerExist(address serverAddress) external view returns (bool);
-    
-    function getServerBlocked(address serverAddress) external view returns (bool, uint256);
-    
+
+    // Enum declaration for server status
+    enum ServerStatus {
+        NotFound,
+        Monitored,
+        Blocked
+    }
+
+    // Add a new address to the monitoring list.
+    function addMonitoring(address newAddress) external;
+
+    // Get the last non-zero monitoring address and its index.
+    function getMonitoring() external view returns (Monitoring memory);
+
+    // Get the list of non-zero monitoring addresses.
+    function getMonitoringAddresses() external view returns (Monitoring[] memory);
+
+    // Remove an address from the monitoring list by replacing it with the zero address.
+    function removeMonitoringAddress(address addressToRemove) external;
+
+    // Check whether the specified address is monitored and not blocked or not found
+    function getServerMonitoringStatus(address serverAddress) external view returns (string memory);
+
+    // Get the number of votes on monitorings for the specified address
+    function getTotalServerVotes(address serverAddress) external view returns (uint256);
+
+    // Structs used in the functions above
+    struct Monitoring {
+        uint256 version;
+        address addr;
+    }
 }

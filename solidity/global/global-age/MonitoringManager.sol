@@ -32,6 +32,7 @@
 pragma solidity ^0.8.19;
 
 import "../common/Ownable.sol";
+import "../../interfaces/IMonitoring.sol";
 import "../../interfaces/IAGEMonitoring.sol";
 
 
@@ -39,19 +40,9 @@ import "../../interfaces/IAGEMonitoring.sol";
  * The Monitorings smart contract is designed to work with monitoring,
  * add, delete, vote for the server, get the number of votes, and more.
  */
-abstract contract MonitoringManager is Ownable {
-    enum ServerStatus {
-        NotFound,
-        Monitored,
-        Blocked
-    }
+abstract contract MonitoringManager is Ownable, IMonitoring {
 
     address[] private _monitoring;
-
-    struct Monitoring {
-        uint256 version;
-        address addr;
-    }
 
     // Add a new address to the monitoring list.
     function addMonitoring(address newAddress) external onlyOwner {
