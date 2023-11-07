@@ -4,6 +4,7 @@
 <br>
 
 
+
 - [BaseProxyVoting Smart Contract Documentation](#baseproxyvoting-smart-contract-documentation)
 
 - [OwnableManager Smart Contract Documentation](#ownablemanager-smart-contract-documentation)
