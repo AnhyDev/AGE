@@ -1,29 +1,20 @@
-# Anhydrite Gaming Ecosystem (AGE)
+## Repository Description: Anhydrite Gaming Ecosystem (AGE)
 
-## Core Idea
-The creation of a unified ecosystem for multiplayer server games that allows the integration of blockchain functionality via Binance Smart Chain. The system facilitates cryptocurrency and NFT (Non-Fungible Token) transactions directly within the gaming environment.
+### Blockchain Section of the Project
 
-## Target Audience
-- Gamers
-- Game Server Administrators
-- Game and Blockchain Developers
+#### Folder Structure:
+- [**`solidity`**](https://github.com/AnhyDev/AGE/tree/main/solidity): Main folder containing Solidity code. Includes all smart contracts of the project and imported libraries.
 
-## Key Features
-1. **Player Wallets**: The ability to create and manage cryptocurrency wallets directly in the gaming interface.
-2. **Transactions and Transfers**: Interaction between players via transactions of various cryptocurrencies and tokens.
-3. **Server Store**: For server administrators — the option to set up a proprietary in-game store, where players can purchase items, services, and get access to exclusive content via cryptocurrency.
-4. **NFT Integration**: The creation, buying, selling, and exchange of NFT assets.
-5. **Server Token**: The ability to create and use proprietary tokens as a primary or secondary in-game currency.
-6. **Extension Modules**: Additional functionalities for voting, raffles, competitions, and charity events.
+  - [**`common`**](https://github.com/AnhyDev/AGE/tree/main/solidity/common): General and abstract smart contracts.
+  
+  - [**`factory`**](https://github.com/AnhyDev/AGE/tree/main/solidity/factory): Factory smart contracts.
+  
+  - [**`global`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global): Global smart contracts, comprising:
+    - [**`global/common`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global/common): Abstract contracts for global smart contracts.
+    - [**`global/anhydrite`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global/anhydrite): Anhydrite cryptocurrency.
+    - [**`global/global-age`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global/global-age): Central AGE contract and its abstract contracts.
+    - [**`global/owners`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global/owners): Contracts for the project's ownership system.
+    - [**`global/monitoring`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global/monitoring): Monitoring smart contracts.
+    - [**`global/metadata`**](https://github.com/AnhyDev/AGE/tree/main/solidity/global/metadata): Contracts with general metadata.
 
-## Monetization
-The basic set of functionalities is free. Add-on modules and advanced features are free, with a small Anhydrite cryptocurrency fee for installation. The fee is burned in the transaction process, regulating circulation and value.
-
-## Security
-High level of cryptographic security and compliance with regulatory standards for financial transactions.
-
-## Scalability
-The project is designed with future scalability and compatibility with new games and blockchains in mind.
-
-## Conclusion
-The Anhydrite Gaming Ecosystem aims to make cryptocurrencies and blockchain technology accessible and useful for the broader gaming community, providing new opportunities for both players and server administrators.
+  - [**`servers`**](https://github.com/AnhyDev/AGE/tree/main/solidity/servers): Local contracts for gaming servers.
